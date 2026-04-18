@@ -1,8 +1,8 @@
 # RMv8 Agent — Groq + Alpha Vantage
 
 ## Keys necesarias (ya tienes ambas)
-- Alpha Vantage: 3BTJKIKE9E7CV2B3
-- Groq:          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
+ALPHA_VANTAGE_KEY=TU_KEY_AQUI
+GROQ_KEY=TU_KEY_GROQ_AQUI
 
 ---
 
