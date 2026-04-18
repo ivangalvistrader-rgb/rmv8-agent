@@ -1,345 +1,438 @@
 """
-RMv8 Agent v4.0 — Análisis profundo basado en logs reales
-Patrón observado (abril 2026):
-  - 3 bloqueadores reales: ATR_FILTER_BLOCK, NO_TRIGGER, TIME_FILTER
-  - ATR oscilando 64-126% del umbral (promedio 89%)
-  - 8 abr (126%): ATR OK pero precio en zona media → NO_TRIGGER todo el día
-  - 1-2 abr (103-105%): ATR OK intermitente, precio nunca tocó banda
-  - RMv4 (versión anterior): tenía filtro ADX adicional que bloqueaba mucho
-  - Lo que realmente falta: ver CUÁNTO falta al precio para tocar BB
+Portfolio Monitor v1.0 — 6 EAs FXIFY $15K + GetLeveraged $100K
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Lee CSV del EACore_Logger y responde UNA pregunta:
+¿El comportamiento live está dentro de lo esperado por el backtest?
+
+EAs:
+  CRv7     | GBPUSD H1  | RSI + EMA/SMA cruce           | Magic 8524
+  RMv8     | CADCHF M30 | BB(30,2.4) + ATR(38)           | Magic 8903
+  ScalpAsia| EURJPY M5  | Keltner + Williams %R          | Magic 4450
+  LDBOX    | GDAXI M5   | Frankfurt/London box breakout  | Magic 123457
+  MilkyWay | EURUSD H1  | BB + DeMarker + Stoch + MACD  | Magic 310116
+  XAUMS    | XAUUSD M15 | EMA régimen + D1 H/L breakout  | Magic 9500
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
-import httpx, os, math, random
-from datetime import datetime, timezone, timedelta
+import httpx, os, csv, io, json, re
+from datetime import datetime, timezone
+from collections import defaultdict
 
-app = FastAPI(title="RMv8-Agent", version="4.0")
+app = FastAPI(title="Portfolio Monitor", version="1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-AV_KEY   = os.getenv("ALPHA_VANTAGE_KEY", "")
 GROQ_KEY = os.getenv("GROQ_KEY", "")
 
-EA = dict(
-    bb_period=30, bb_dev=2.4,
-    atr_period=38, atr_level=0.0005,
-    sl_pips=185, tp_pips=30, shrink_pips=16,
-    win_start=9, win_end=20,
-)
+# ── Conocimiento completo del portafolio ─────────────────────────
+PORTFOLIO = {
+    "CRv7": {
+        "name": "EA-CRv7", "symbol": "GBPUSD", "tf": "H1",
+        "magic": 8524, "color": "#3b82f6",
+        "strategy": "Trend: RSI(36)>50 setup + cruce EMA(69)/SMA(89) trigger",
+        "entry_logic": "RSI barra1 cruza 50, EMA cruza sobre/bajo SMA en barra 2→1",
+        "exit_logic": "TP fijo 186p + 1 cierre parcial 33% a +14p (PMSw=2)",
+        "sl": 132, "tp": 186,
+        "window_gmt": "00:00-18:00", "win_start": 0, "win_end": 18,
+        "lots_fxpig": 0.20, "lots_getlev": 0.80,
+        "IS": {"trades": 313, "wr": 78.0, "pf": 1.86, "dd": 4.41},
+        "OOS": {"trades": 45, "wr": 80.0, "pf": 2.13, "dd": 3.33},
+        "avg_duration_h": 113.8,
+        "expected_trades_month": 4.4,
+        "main_blocks": ["TIME_FILTER", "NO_RSI_SETUP", "NO_CROSS"],
+        "alert_threshold_sl": 3,   # >3 SL en período = revisar
+        "normal_zero_trade_weeks": 3,
+    },
+    "RMv8": {
+        "name": "EA-RMv8", "symbol": "CADCHF", "tf": "M30",
+        "magic": 8903, "color": "#a855f7",
+        "strategy": "Mean Reversion: BB(30,2.4) + ATR(38)>0.0005",
+        "entry_logic": "Precio CRUZA FUERA de BB + ATR(38) M30 > 0.0005",
+        "exit_logic": "TP 30p fijo + ShrinkSL a +16p (reduce pérdida potencial)",
+        "sl": 185, "tp": 30,
+        "window_gmt": "09:00-20:00", "win_start": 9, "win_end": 20,
+        "lots_fxpig": 0.10, "lots_getlev": 0.40,
+        "IS": {"trades": 307, "wr": 92.18, "pf": 2.10, "dd": 3.01},
+        "OOS": {"trades": 40, "wr": 95.0, "pf": 6.04, "dd": 1.72},
+        "avg_duration_h": 116,
+        "expected_trades_month": 3.3,
+        "main_blocks": ["TIME_FILTER", "ATR_FILTER_BLOCK", "NO_TRIGGER"],
+        "alert_threshold_sl": 2,
+        "normal_zero_trade_weeks": 4,
+    },
+    "ScalpAsia": {
+        "name": "EA-ScalpAsia", "symbol": "EURJPY", "tf": "M5",
+        "magic": 4450, "color": "#14b8a6",
+        "strategy": "Scalp Asian session: Keltner Channel + Williams %R",
+        "entry_logic": "Close fuera de Keltner + WPR cruza nivel -81 (buy) o -35 (sell)",
+        "exit_logic": "Trailing SL sobre Keltner (PMSw=5) — salida principalmente por SL dinámico",
+        "sl_dynamic": True, "tp_dynamic": True,
+        "window_gmt": "22:00-00:00 (23-07 backtest)", "win_start": 22, "win_end": 24,
+        "lots_fxpig": 0.23, "lots_getlev": 0.90,
+        "IS": {"trades": 294, "wr": 74.5, "pf": 2.58, "dd": 4.41},
+        "OOS": {"trades": 60, "wr": 76.7, "pf": 2.78, "dd": 2.49},
+        "avg_duration_h": 8.9,
+        "expected_trades_month": 12,
+        "main_blocks": ["TIME_FILTER", "NO_KELTNER_BREAK", "NO_WPR_CROSS"],
+        "alert_threshold_sl": 8,   # alta frecuencia — más SLs son normales
+        "normal_zero_trade_weeks": 1,
+        "note": "StrHr live=22 GMT (backtest StrHr=0 por offset UTC+2 de Darwinex)",
+    },
+    "LDBOX": {
+        "name": "EA-LDBOX", "symbol": "GDAXI", "tf": "M5",
+        "magic": 123457, "color": "#f97316",
+        "strategy": "Breakout: Caja Frankfurt/London + EMA bias H1 + 1 trade/día",
+        "entry_logic": "Breakout de la caja 09-15h GMT + vela body válida + EMA H1 bias + distancia máx 22u",
+        "exit_logic": "SL dinámico (2.5x rango) + TP dinámico (4x rango) + ShrinkSL",
+        "sl_dynamic": True, "tp_dynamic": True,
+        "window_gmt": "09:00-15:00", "win_start": 9, "win_end": 15,
+        "lots_fxpig": "RiskPct=0.72%", "lots_getlev": "RiskPct=0.75%",
+        "IS": {"trades": 498, "wr": 46.0, "pf": 1.48, "dd": 5.71},
+        "OOS": {"trades": 75, "wr": 50.7, "pf": 2.03, "dd": 2.52},
+        "avg_duration_h": 36,
+        "expected_trades_month": 10.7,
+        "main_blocks": ["TIME_FILTER", "BOX_INVALID", "SPREAD_HIGH", "NO_BREAKOUT"],
+        "alert_threshold_sl": 12,
+        "normal_zero_trade_weeks": 1,
+        "note": "1 trade por día máximo. Box range válido: 11-135 unidades",
+    },
+    "MilkyWay": {
+        "name": "EA-MilkyWay", "symbol": "EURUSD", "tf": "H1",
+        "magic": 310116, "color": "#ec4899",
+        "strategy": "Mean Reversion: BB(32) + DeMarker(9) + Stoch(8,7,31) + MACD(44,38,31)",
+        "entry_logic": "Precio fuera de BB(32) + MaxCandle<140pts + DeM + Amplitude(18) confirman agotamiento",
+        "exit_logic": "Stoch cruza StochB(71) O MACD cambia signo — sin TP fijo",
+        "sl": "Dinámico: ATR histórico + 40 offset [8-135p]", "tp": "Sin TP fijo",
+        "window_gmt": "Sin filtro horario activo", "win_start": 0, "win_end": 24,
+        "lots_fxpig": 0.25, "lots_getlev": "retirado",
+        "IS": {"trades": 260, "wr": 61.2, "pf": 1.46, "dd": 4.70},
+        "OOS": {"trades": 36, "wr": 66.7, "pf": 4.72, "dd": 2.21},
+        "avg_duration_h": 72,
+        "expected_trades_month": 5,
+        "main_blocks": ["SPIKE_FILTER", "PATTERN_BLOCKER", "NO_BB_BREAK", "DEM_FILTER"],
+        "alert_threshold_sl": 4,
+        "normal_zero_trade_weeks": 2,
+        "note": "OOS PF=4.72 inflado (36 trades). Referencia real es IS PF=1.46. Retirado de GetLeveraged.",
+    },
+    "XAUMS": {
+        "name": "EA-XAUMS", "symbol": "XAUUSD", "tf": "M15",
+        "magic": 9500, "color": "#eab308",
+        "strategy": "Breakout: EMA régimen H4 + ruptura High/Low D1 + confirmación ATR M15",
+        "entry_logic": "Régimen H4 EMA(31) ±1.4% → ruptura del H/L del anteayer + cuerpo vela ≥ ATR(34)",
+        "exit_logic": "SL = 2.2x ATR_H1(32), TP = 1.5x SL (ratio 1:1.5). BUY/SELL asimétrico (SellATRMult=2.1x)",
+        "sl_dynamic": True, "tp_dynamic": True,
+        "window_gmt": "12:00-17:00", "win_start": 12, "win_end": 17,
+        "lots_fxpig": "RiskPct=0.70%", "lots_getlev": "RiskPct=0.75%",
+        "IS": {"trades": 170, "wr": 52.4, "pf": 1.61, "dd": 5.38},
+        "OOS": {"trades": 35, "wr": 60.0, "pf": 2.24, "dd": 1.81},
+        "avg_duration_h": 24,
+        "expected_trades_month": 4.9,
+        "main_blocks": ["TIME_FILTER", "REGIME_NEUTRAL", "NO_TRIGGER_BREAK", "NO_ATR_CONFIRM"],
+        "alert_threshold_sl": 5,
+        "normal_zero_trade_weeks": 2,
+    },
+}
+
+# Magic number → EA key
+MAGIC_MAP = {
+    8524: "CRv7", 8903: "RMv8", 4450: "ScalpAsia",
+    123457: "LDBOX", 310116: "MilkyWay", 9500: "XAUMS",
+}
+
+# ── Estado en memoria ────────────────────────────────────────────
+LOG_STORE: dict[str, dict] = {}   # ea_key → parsed data
 
 # ════════════════════════════════════════════════════════════════
-#  DATOS — Alpha Vantage FX_DAILY (gratuito) + Frankfurter fallback
+#  PARSER CSV — EACore_Logger universal
 # ════════════════════════════════════════════════════════════════
 
-async def fetch_av_daily(months: int = 6) -> list[dict]:
-    """FX_DAILY gratuito — últimos N meses (~130 días)"""
-    url = (
-        "https://www.alphavantage.co/query"
-        "?function=FX_DAILY&from_symbol=CAD&to_symbol=CHF"
-        f"&outputsize={'full' if months > 3 else 'compact'}&apikey={AV_KEY}"
-    )
-    async with httpx.AsyncClient(timeout=20) as c:
-        r = await c.get(url)
-        r.raise_for_status()
-        d = r.json()
-    key = "Time Series FX (Daily)"
-    if key not in d:
-        raise RuntimeError(d.get("Note") or d.get("Information") or "AV sin datos")
-    cutoff = (datetime.now(timezone.utc) - timedelta(days=months*31)).strftime("%Y-%m-%d")
-    items  = [(dt, v) for dt, v in d[key].items() if dt >= cutoff]
-    items  = sorted(items)
-    return [
-        {"date": dt,
-         "open":  float(v["1. open"]),
-         "high":  float(v["2. high"]),
-         "low":   float(v["3. low"]),
-         "close": float(v["4. close"])}
-        for dt, v in items
-    ]
+def detect_ea(rows: list[dict]) -> str | None:
+    """Detecta qué EA generó el log por Magic, EA name, o símbolo."""
+    for row in rows[:20]:
+        ea_col = row.get("EA", "").strip()
+        sym    = row.get("Symbol", "").replace(".r", "").strip()
+        det    = row.get("Detalle", "")
 
-async def fetch_frankfurter(months: int = 6) -> list[dict]:
-    end   = datetime.now(timezone.utc).date()
-    start = end - timedelta(days=months*31)
-    url   = f"https://api.frankfurter.app/{start}..{end}?from=CAD&to=CHF"
-    async with httpx.AsyncClient(timeout=15) as c:
-        r = await c.get(url)
-        r.raise_for_status()
-        d = r.json()
-    if "rates" not in d:
-        raise RuntimeError("Frankfurter: sin datos")
-    prices = [(dt, v["CHF"]) for dt, v in sorted(d["rates"].items()) if "CHF" in v]
-    daily = []
-    for i, (dt, close) in enumerate(prices):
-        prev = prices[i-1][1] if i > 0 else close
-        rng  = max(abs(close - prev) * 2.2, 0.0003)
-        daily.append({
-            "date":  dt,
-            "open":  round(prev, 5),
-            "high":  round(max(prev, close) + rng * 0.28, 5),
-            "low":   round(min(prev, close) - rng * 0.28, 5),
-            "close": round(close, 5),
-        })
-    return daily
+        # Por nombre directo
+        for key in PORTFOLIO:
+            if key.lower() in ea_col.lower():
+                return key
 
-def daily_to_m30(daily: list[dict]) -> list[dict]:
-    """Convierte OHLC diario en pseudo-velas M30 realistas"""
-    candles = []
-    seed_val = sum(int(d["close"] * 100000) for d in daily[-5:]) % 9999
-    rng = random.Random(seed_val)
-    for day in daily:
-        o, h, l, c = day["open"], day["high"], day["low"], day["close"]
-        day_range  = h - l
-        m30_vol    = day_range / math.sqrt(22)
-        direction  = 1 if c >= o else -1
-        price      = o
-        for i in range(22):
-            drift = direction * m30_vol * 0.12
-            noise = rng.gauss(0, m30_vol * 0.38)
-            move  = drift + noise
-            op    = price
-            cl    = max(l + 0.00001, min(h - 0.00001, price + move))
-            hi    = min(h, max(op, cl) + abs(rng.gauss(0, m30_vol * 0.08)))
-            lo    = max(l, min(op, cl) - abs(rng.gauss(0, m30_vol * 0.08)))
-            candles.append({
-                "time":  f"{day['date']} {9+i//2:02d}:{30*(i%2):02d}:00",
-                "open":  round(op, 5), "high": round(hi, 5),
-                "low":   round(lo, 5), "close": round(cl, 5),
+        # Por símbolo
+        sym_map = {
+            "GBPUSD": "CRv7", "CADCHF": "RMv8", "EURJPY": "ScalpAsia",
+            "GDAXI": "LDBOX", "GER30": "LDBOX",
+            "EURUSD": "MilkyWay", "XAUUSD": "XAUMS",
+        }
+        if sym in sym_map:
+            return sym_map[sym]
+
+        # Por Magic en INIT
+        if "Magic" in det or "MagicStart" in det or "magic" in det.lower():
+            for magic, key in MAGIC_MAP.items():
+                if str(magic) in det:
+                    return key
+
+    return None
+
+def parse_log(content: str) -> dict:
+    rows = list(csv.DictReader(io.StringIO(content)))
+    if not rows:
+        return {"error": "CSV vacío o sin cabecera válida"}
+
+    ea_key = detect_ea(rows)
+    if not ea_key:
+        return {"error": "No se pudo identificar el EA. Verifica que el CSV sea del EACore_Logger"}
+
+    ea_info = PORTFOLIO[ea_key]
+
+    # Acumuladores
+    atrs, bbls, bbus, prices, spreads = [], [], [], [], []
+    blocks = defaultdict(int)
+    filter_passes = defaultdict(int)
+    trades_open = []
+    trades_close = []
+    inits = []
+    indicators_rows = []
+    bar_count = 0
+
+    for row in rows:
+        ev  = row.get("Evento", "").strip()
+        det = row.get("Detalle", "").strip()
+        dt  = row.get("DateTime", "").strip()
+        spd = row.get("Spread_p", "")
+        pnl_raw = row.get("PnL_USD", "")
+
+        # INIT
+        if ev == "INIT":
+            inits.append({"dt": dt, "detail": det})
+
+        # Barras evaluadas
+        if ev in ("BAR", "INDICATORS", "FILTER_PASS", "FILTER_BLOCK", "BLOCK"):
+            bar_count += 1
+
+        # ATR (RMv8 y otros)
+        if "ATR1=" in det:
+            try:
+                v = float(det.split("ATR1=")[1].split(" ")[0].rstrip(","))
+                if v > 0: atrs.append(v)
+            except: pass
+        if "ATR=" in det and "ATR1=" not in det:
+            try:
+                v = float(det.split("ATR=")[1].split(" ")[0].rstrip(","))
+                if v > 0: atrs.append(v)
+            except: pass
+
+        # BB
+        if "BBLo1=" in det:
+            try:
+                bbls.append(float(det.split("BBLo1=")[1].split(" ")[0]))
+                bbus.append(float(det.split("BBUp1=")[1].split(" ")[0]))
+            except: pass
+
+        # Precio C1
+        if "C1=" in det:
+            try:
+                v = float(det.split("C1=")[1].split(" ")[0].split(",")[0])
+                if v > 0.1: prices.append(v)
+            except: pass
+        if "Close=" in det:
+            try:
+                v = float(det.split("Close=")[1].split(" ")[0].split(",")[0])
+                if v > 0.1: prices.append(v)
+            except: pass
+
+        # Spread
+        if spd:
+            try: spreads.append(float(spd))
+            except: pass
+
+        # Bloqueadores
+        if ev == "BLOCK":
+            blocks[det] += 1
+        if ev == "FILTER_BLOCK":
+            for kw in ["TIME", "ATR", "SPREAD", "BB", "RSI", "CROSS", "BOX",
+                       "REGIME", "TRIGGER", "PATTERN", "SPIKE", "DIST"]:
+                if kw in det.upper():
+                    blocks[kw + "_BLOCK"] += 1
+                    break
+
+        # Trades
+        if ev == "TRADE_OPEN" or "OPEN_BUY" in ev or "OPEN_SELL" in ev:
+            try:
+                price_v = float(row.get("Price", 0) or 0)
+                lots_v  = float(row.get("Lots", 0) or 0)
+            except: price_v = lots_v = 0
+            trades_open.append({
+                "dt": dt, "dir": "BUY" if "BUY" in det.upper() else "SELL",
+                "price": price_v, "lots": lots_v, "detail": det,
             })
-            price = cl
-    return candles
 
-async def get_data(months: int = 6) -> tuple[list[dict], list[dict], str]:
-    """Retorna (daily, m30_candles, source)"""
-    if AV_KEY:
-        try:
-            daily   = await fetch_av_daily(months)
-            candles = daily_to_m30(daily)
-            return daily, candles, f"Alpha Vantage FX_DAILY → {len(daily)} días"
-        except Exception:
-            pass
-    try:
-        daily   = await fetch_frankfurter(months)
-        candles = daily_to_m30(daily)
-        return daily, candles, f"Frankfurter API → {len(daily)} días"
-    except Exception:
-        pass
-    # Fallback
-    now = datetime.now(timezone.utc)
-    rng = random.Random(42)
-    price, daily, candles = 0.5707, [], []
-    for i in range(months * 22):
-        dt    = now - timedelta(days=(months*22 - i))
-        move  = rng.gauss(0, 0.0012)
-        price = max(0.5500, min(0.5900, price + move))
-        hi    = price + abs(rng.gauss(0, 0.0005))
-        lo    = price - abs(rng.gauss(0, 0.0005))
-        daily.append({"date": dt.strftime("%Y-%m-%d"), "open": round(price-move,5),
-                      "high": round(hi,5), "low": round(lo,5), "close": round(price,5)})
-    candles = daily_to_m30(daily)
-    return daily, candles, "Fallback estático"
+        if ev in ("EXIT_TP", "EXIT_SL", "TRADE_CLOSE", "EXIT_TIME", "WIN", "LOSS"):
+            try: pnl = float(pnl_raw)
+            except: pnl = 0.0
+            trades_close.append({
+                "dt": dt, "exit_type": ev, "pnl": pnl, "detail": det,
+            })
 
-# ════════════════════════════════════════════════════════════════
-#  CÁLCULOS — exactos como el EA
-# ════════════════════════════════════════════════════════════════
+    # Diagnóstico
+    total_blocks = sum(blocks.values())
+    total_trades = len(trades_open)
+    realized_pnl = sum(t["pnl"] for t in trades_close)
+    sl_trades    = [t for t in trades_close if "SL" in t["exit_type"] or t["pnl"] < 0]
+    tp_trades    = [t for t in trades_close if "TP" in t["exit_type"] or t["pnl"] > 0]
 
-def calc_bb(closes: list[float]) -> dict:
-    s   = closes[-EA["bb_period"]:]
-    m   = sum(s) / len(s)
-    std = math.sqrt(sum((x-m)**2 for x in s) / len(s))
-    return dict(upper=round(m+EA["bb_dev"]*std,5), mid=round(m,5),
-                lower=round(m-EA["bb_dev"]*std,5), std=round(std,5))
+    oos = ea_info["OOS"]
+    expected_per_session = oos["expected_trades_month"] if "expected_trades_month" in oos else oos["trades"] / 12
 
-def calc_atr(candles: list[dict], period: int = None) -> float:
-    p = period or EA["atr_period"]
-    trs = [max(c["high"]-c["low"], abs(c["high"]-candles[i-1]["close"]),
-               abs(c["low"]-candles[i-1]["close"]))
-           for i, c in enumerate(candles) if i > 0]
-    last = trs[-p:]
-    return round(sum(last)/len(last), 6)
+    # Estado principal
+    dominant_block = max(blocks, key=blocks.get) if blocks else "ninguno"
 
-def atr_series_daily(daily: list[dict]) -> list[dict]:
-    """ATR diario (True Range) para gráfico histórico"""
-    result = []
-    for i in range(1, len(daily)):
-        h, l = daily[i]["high"], daily[i]["low"]
-        pc   = daily[i-1]["close"]
-        tr   = max(h-l, abs(h-pc), abs(l-pc))
-        # ATR M30 estimado = TR_diario / sqrt(22) para comparar con umbral
-        atr_m30_est = tr / math.sqrt(22)
-        result.append({
-            "date":        daily[i]["date"],
-            "close":       daily[i]["close"],
-            "tr_daily":    round(tr, 5),
-            "atr_m30_est": round(atr_m30_est, 6),
-            "atr_pct":     round(atr_m30_est / EA["atr_level"] * 100, 1),
-            "above_threshold": atr_m30_est >= EA["atr_level"],
-        })
-    return result
+    # ¿Es normal?
+    def assess_status():
+        if total_trades == 0 and total_blocks > 0:
+            if dominant_block in ea_info["main_blocks"] or any(
+                b in dominant_block for b in ["TIME", "ATR", "SPREAD"]
+            ):
+                return "NORMAL", f"0 trades — bloqueado por {dominant_block} (esperado según backtest)"
+            return "REVISAR", f"0 trades — bloqueador inusual: {dominant_block}"
+        if len(sl_trades) > ea_info["alert_threshold_sl"]:
+            return "ACCIÓN", f"{len(sl_trades)} SLs — supera umbral de {ea_info['alert_threshold_sl']} para este EA"
+        if total_trades > 0:
+            return "NORMAL", f"{total_trades} trades detectados — actividad dentro de lo esperado"
+        return "NORMAL", "Sin actividad — período sin condiciones"
 
-def diagnose_block(atr_pass: bool, bb_signal, in_win: bool) -> str:
-    """Replica exacta de los 3 bloqueadores reales del EA"""
-    if not in_win:           return "TIME_FILTER"
-    if not atr_pass:         return "ATR_FILTER_BLOCK"
-    if bb_signal is None:    return "NO_TRIGGER"
-    return "OPEN"
+    status, status_reason = assess_status()
 
-def evaluate_full(daily: list[dict], candles: list[dict], source: str) -> dict:
-    closes   = [c["close"] for c in candles]
-    price    = closes[-1]
-    bb       = calc_bb(closes)
-    atr_m30  = calc_atr(candles)
-    now      = datetime.now(timezone.utc)
-    gmt_h    = now.hour
-    in_win   = EA["win_start"] <= gmt_h < EA["win_end"]
-    atr_pass = atr_m30 >= EA["atr_level"]
-    atr_pct  = round(atr_m30 / EA["atr_level"] * 100, 1)
+    # Filas de inicio
+    first_dt = inits[0]["dt"] if inits else (rows[0].get("DateTime","") if rows else "")
+    last_dt  = rows[-1].get("DateTime","") if rows else ""
 
-    bb_range  = bb["upper"] - bb["lower"]
-    price_pct = round((price - bb["lower"]) / bb_range * 100, 1) if bb_range else 50
-
-    bb_signal = None
-    if price >= bb["upper"]:   bb_signal = "SELL"
-    elif price <= bb["lower"]: bb_signal = "BUY"
-
-    dist_upper = round((bb["upper"] - price) / 0.0001, 1)
-    dist_lower = round((price - bb["lower"]) / 0.0001, 1)
-    atr_gap    = round((EA["atr_level"] - atr_m30) / 0.0001, 1) if not atr_pass else 0
-
-    block_reason = diagnose_block(atr_pass, bb_signal, in_win)
-    all_pass     = block_reason == "OPEN"
-
-    # Régimen de mercado
-    if atr_pct < 70:
-        regime = "COMPRESIÓN SEVERA"
-        regime_color = "red"
-    elif atr_pct < 90:
-        regime = "COMPRESIÓN MODERADA"
-        regime_color = "yellow"
-    elif atr_pct < 100:
-        regime = "PRE-ACTIVACIÓN"
-        regime_color = "orange"
-    elif bb_signal:
-        regime = "SEÑAL ACTIVA"
-        regime_color = "green"
-    else:
-        regime = "ATR OK — SIN TOQUE BB"
-        regime_color = "blue"
-
-    # Historia reciente de ATR (patrones de logs reales)
-    atr_hist = atr_series_daily(daily[-30:])  # últimos 30 días
-
-    # Tendencia ATR (últimas 5 velas M30)
-    if len(candles) >= EA["atr_period"] + 6:
-        atrs_recent = []
-        for i in range(6):
-            sub = candles[:-(5-i)] if (5-i)>0 else candles
-            if len(sub) > EA["atr_period"]:
-                atrs_recent.append(calc_atr(sub))
-        delta = atrs_recent[-1] - atrs_recent[0] if len(atrs_recent) >= 2 else 0
-        pct_d = abs(delta)/atrs_recent[0]*100 if atrs_recent[0] else 0
-        atr_trend = f"subiendo +{pct_d:.1f}%" if delta>0 and pct_d>3 else \
-                    f"bajando -{pct_d:.1f}%" if delta<0 and pct_d>3 else "estable"
-    else:
-        atr_trend = "indeterminado"
-
-    # Días consecutivos sin activar (del patrón de logs)
-    days_above = sum(1 for x in atr_hist[-20:] if x["above_threshold"])
-    days_total = len(atr_hist[-20:])
-
-    win_msg = (f"Activa — {EA['win_end']-gmt_h}h restantes"
-               if in_win else f"Fuera (GMT {gmt_h:02d}h) — abre a las 09:00 GMT")
-
-    return dict(
-        price=round(price,5), bb=bb, atr=atr_m30, atr_pct=atr_pct,
-        atr_trend=atr_trend, atr_gap_pips=atr_gap,
-        in_window=in_win, gmt_hour=gmt_h, window_msg=win_msg,
-        atr_pass=atr_pass, bb_signal=bb_signal,
-        dist_upper_pips=dist_upper, dist_lower_pips=dist_lower,
-        price_pct_in_band=price_pct,
-        block_reason=block_reason, all_pass=all_pass,
-        regime=regime, regime_color=regime_color,
-        atr_history=atr_hist,        # serie histórica completa
-        days_above_threshold=days_above,
-        days_total_recent=days_total,
-        candles_used=len(candles),
-        data_source=source,
-        timestamp=now.isoformat(),
-        last_candle=candles[-1]["time"],
-    )
+    return {
+        "ea_key": ea_key,
+        "ea_name": ea_info["name"],
+        "symbol": ea_info["symbol"],
+        "tf": ea_info["tf"],
+        "strategy": ea_info["strategy"],
+        "period_start": first_dt,
+        "period_end":   last_dt,
+        "bar_count": bar_count,
+        "trades_open": len(trades_open),
+        "trades_close": len(trades_close),
+        "sl_count": len(sl_trades),
+        "tp_count": len(tp_trades),
+        "realized_pnl": round(realized_pnl, 2),
+        "blocks": dict(blocks),
+        "dominant_block": dominant_block,
+        "total_blocks": total_blocks,
+        "atr_avg": round(sum(atrs)/len(atrs), 6) if atrs else None,
+        "atr_min": round(min(atrs), 6) if atrs else None,
+        "atr_max": round(max(atrs), 6) if atrs else None,
+        "price_last": round(prices[-1], 5) if prices else None,
+        "bbl_avg": round(sum(bbls)/len(bbls), 5) if bbls else None,
+        "bbu_avg": round(sum(bbus)/len(bbus), 5) if bbus else None,
+        "spread_avg": round(sum(spreads)/len(spreads), 2) if spreads else None,
+        "spread_max": round(max(spreads), 2) if spreads else None,
+        "status": status,
+        "status_reason": status_reason,
+        "recent_trades": trades_open[-5:],
+        "recent_closes": trades_close[-5:],
+        "IS": ea_info["IS"],
+        "OOS": ea_info["OOS"],
+        "expected_trades_month": ea_info.get("expected_trades_month"),
+        "alert_threshold_sl": ea_info["alert_threshold_sl"],
+        "normal_zero_trade_weeks": ea_info["normal_zero_trade_weeks"],
+        "inits": inits,
+    }
 
 # ════════════════════════════════════════════════════════════════
-#  GROQ — Prompt mejorado con contexto real de logs
+#  GROQ — análisis experto por EA
 # ════════════════════════════════════════════════════════════════
 
-SYSTEM = """Eres el agente experto del EA-RMv8, estrategia de mean reversion CADCHF M30.
+SYSTEM_PORTFOLIO = """Eres el sistema de monitoreo experto de un portafolio de 6 Expert Advisors en MetaTrader 5, operando una cuenta FXIFY $15K (DD diario máx 5%) y GetLeveraged $100K (DD diario máx 3%).
 
-ARQUITECTURA EXACTA DEL EA (de logs reales):
-Hay exactamente 3 bloqueadores en secuencia:
-1. TIME_FILTER: fuera ventana GMT 09-20h (siempre activo 20:00-09:00 GMT)
-2. ATR_FILTER_BLOCK: ATR(38) M30 < 0.0005 — volatilidad insuficiente
-3. NO_TRIGGER: ATR OK pero precio NO ha cruzado fuera de BB(30,2.4)
+REGLA OPERATIVA FUNDAMENTAL:
+Los EAs están en período de observación de 3 meses. NO se toca ningún EA. Solo se monitorea.
+La pregunta que respondes es ÚNICA: ¿Está el comportamiento live dentro de lo que predice el backtest?
 
-PATRÓN OBSERVADO EN LOGS REALES (abril 2026):
-- 1-2 abr (103-105%): ATR OK pero precio nunca tocó banda → NO_TRIGGER todo el día
-- 3 abr (64%): crash de volatilidad repentino → ATR_FILTER_BLOCK todo el día
-- 8 abr (126%): ATR muy por encima del umbral pero mismo resultado → NO_TRIGGER (precio en zona media)
-- 9-17 abr: descenso progresivo del ATR (83%→71%), precio en zona media
-- Conclusión clave: el EA necesita AMBAS condiciones simultáneas en ventana horaria
-- La semana de mayor volatilidad (8 abr) NO produjo trades porque el precio no tocó las bandas
+LOS 6 EAs DEL PORTAFOLIO:
+1. EA-CRv7  | GBPUSD H1  | RSI(36)+EMA(69)/SMA(89) | 4.4 trades/mes | WR OOS 80%
+2. EA-RMv8  | CADCHF M30 | BB(30,2.4)+ATR(38)>0.0005 | 3.3 trades/mes | WR OOS 95%
+3. EA-ScalpAsia | EURJPY M5 | Keltner+WPR | 12 trades/mes | WR OOS 77%
+4. EA-LDBOX | GDAXI M5   | Box Frankfurt/London | 10.7 trades/mes | WR OOS 51%
+5. EA-MilkyWay | EURUSD H1 | BB+DeM+Stoch+MACD | 5 trades/mes | WR OOS 67%
+6. EA-XAUMS | XAUUSD M15 | EMA régimen H4 + D1 breakout | 4.9 trades/mes | WR OOS 60%
 
-PARÁMETROS: BB(30,2.4) | ATR(38)>0.0005 | Ventana 09-20 GMT | SL=185p TP=30p | WR 91-95%
+PortfolioRM: máximo 4 trades simultáneos. CRv7 y RMv8 solapan 91.9% del tiempo (núcleo permanente).
 
-Tu análisis debe:
-1. Identificar exactamente cuál bloqueador está activo y por qué
-2. Calcular qué necesita cambiar para cada bloqueador (en números concretos)
-3. Analizar si el patrón actual (ATR + posición precio) se parece a algún período histórico
-4. Catalizadores macro CAD/CHF próximos que podrían cambiar el ATR o mover el precio a las bandas
-5. Estimación realista de cuándo podría darse la próxima señal
+Tus respuestas deben ser:
+1. Directas: ¿Normal, Revisar o Acción?
+2. Específicas: menciona el bloqueador exacto y por qué es o no es esperado
+3. Comparativas: contrasta con el backtest OOS real
+4. Concisas: máximo 200 palabras por EA
 
-Máximo 280 palabras. Termina con:
-BLOQUEADOR_ACTIVO: [TIME_FILTER|ATR_FILTER_BLOCK|NO_TRIGGER|NINGUNO]
-VEREDICTO: [ESPERAR|ALERTA|SEÑAL_ACTIVA] — [razón concisa]"""
+Termina SIEMPRE con:
+ESTADO: [NORMAL|REVISAR|ACCIÓN] — [razón en una frase]"""
 
-def build_prompt(ev: dict) -> str:
-    bb = ev["bb"]
-    # últimos 10 días de historia ATR
-    hist_lines = ""
-    for h in ev["atr_history"][-10:]:
-        flag = "⚡" if h["above_threshold"] else ("⚠" if h["atr_pct"]>=80 else "·")
-        hist_lines += f"  {h['date']}: {flag} {h['atr_pct']:>5.1f}% | precio {h['close']:.5f}\n"
+def build_ea_prompt(data: dict) -> str:
+    ea = PORTFOLIO.get(data["ea_key"], {})
+    blocks_str = ", ".join(f"{k}:{v}" for k,v in data["blocks"].items()) or "ninguno"
+    recent_opens = [f"{t['dt']} {t['dir']} @{t['price']}" for t in data.get("recent_trades", [])]
+    recent_closes = [f"{t['dt']} {t['exit_type']} PnL={t['pnl']}" for t in data.get("recent_closes", [])]
 
-    return f"""CADCHF M30 — {ev['timestamp']}
+    atr_info = ""
+    if data.get("atr_avg"):
+        atr_level = 0.0005 if data["ea_key"] == "RMv8" else None
+        if atr_level:
+            pct = data["atr_avg"]/atr_level*100
+            atr_info = f"\nATR(38) M30: {data['atr_avg']:.6f} ({pct:.0f}% del umbral 0.0005)"
+        else:
+            atr_info = f"\nATR observado: {data['atr_avg']:.6f} (min:{data['atr_min']:.6f} max:{data['atr_max']:.6f})"
 
-ESTADO ACTUAL:
-Precio:         {ev['price']}
-BB Upper:       {bb['upper']} | dist: {ev['dist_upper_pips']}p
-BB Lower:       {bb['lower']} | dist: {ev['dist_lower_pips']}p
-Posición BB:    {ev['price_pct_in_band']}% dentro de banda
-ATR(38) M30:    {ev['atr']} ({ev['atr_pct']}% umbral) | tendencia: {ev['atr_trend']}
-Faltan:         {ev['atr_gap_pips']}p para alcanzar umbral
-Ventana GMT:    {'✓' if ev['in_window'] else '✗'} {ev['window_msg']}
+    return f"""ANÁLISIS {data['ea_name']} — {data['symbol']} {data['tf']}
+Período: {data['period_start']} → {data['period_end']}
+Barras evaluadas: {data['bar_count']}
 
-BLOQUEADOR ACTIVO: {ev['block_reason']}
-Régimen:        {ev['regime']}
+ACTIVIDAD:
+Trades abiertos: {data['trades_open']}
+Trades cerrados: {data['trades_close']} (TP:{data['tp_count']} SL:{data['sl_count']})
+PnL realizado: ${data['realized_pnl']}
+{atr_info}
+Spread avg/max: {data.get('spread_avg','—')}p / {data.get('spread_max','—')}p
 
-HISTORIA RECIENTE ATR ({ev['days_above_threshold']}/{ev['days_total_recent']} días sobre umbral):
-{hist_lines}
+BLOQUEADORES:
+{blocks_str}
+Dominante: {data['dominant_block']} ({data['total_blocks']} eventos totales)
 
-CONTEXTO LOGS REALES:
-- 8 abril: ATR 126% — aún así 0 trades (NO_TRIGGER — precio en zona media todo el día)
-- Patrón actual similar a 9-17 abril: ATR oscilando 71-89%, sin toque de banda
-- Precio necesita moverse {ev['dist_lower_pips']}p a la baja O {ev['dist_upper_pips']}p al alza para señal
+BACKTEST REFERENCIA OOS:
+WR: {data['OOS']['wr']}% | PF: {data['OOS']['pf']} | DD máx: {data['OOS']['dd']}%
+Trades esperados/mes: {data.get('expected_trades_month','?')}
+Umbral SL alerta: {data['alert_threshold_sl']} SLs en período
+Normal con 0 trades hasta: {data.get('normal_zero_trade_weeks','?')} semanas
 
-Fuente datos: {ev['data_source']}"""
+ESTRATEGIA: {ea.get('strategy','')}
+ENTRADA: {ea.get('entry_logic','')}
+SALIDA: {ea.get('exit_logic','')}
+
+Trades recientes: {'; '.join(recent_opens) or 'ninguno'}
+Cierres recientes: {'; '.join(recent_closes) or 'ninguno'}
+
+ESTADO DETERMINISTA: {data['status']} — {data['status_reason']}
+
+Analiza si el comportamiento es consistente con el backtest OOS."""
 
 async def call_groq(prompt: str) -> dict:
+    if not GROQ_KEY:
+        return {"analysis": "GROQ_KEY no configurado", "status": "REVISAR", "reason": "Sin API key"}
     headers = {"Authorization": f"Bearer {GROQ_KEY}", "Content-Type": "application/json"}
     body = {
         "model": "llama-3.3-70b-versatile",
-        "max_tokens": 900, "temperature": 0.25,
-        "messages": [{"role":"system","content":SYSTEM},
-                     {"role":"user",  "content":prompt}],
+        "max_tokens": 600, "temperature": 0.2,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PORTFOLIO},
+            {"role": "user", "content": prompt},
+        ],
     }
     async with httpx.AsyncClient(timeout=30) as c:
         r = await c.post("https://api.groq.com/openai/v1/chat/completions",
@@ -347,22 +440,20 @@ async def call_groq(prompt: str) -> dict:
         r.raise_for_status()
         text = r.json()["choices"][0]["message"]["content"]
 
-    verdict, reason, blocker = "ESPERAR", "", "DESCONOCIDO"
+    status, reason = "NORMAL", ""
     for line in reversed(text.split("\n")):
-        ls = line.strip().upper()
-        if ls.startswith("VEREDICTO:"):
-            rest = line.split(":",1)[1].strip()
-            for v in ("SEÑAL_ACTIVA","ALERTA","ESPERAR"):
-                if v in rest.upper():
-                    verdict = v
-                    reason  = rest[rest.upper().find(v)+len(v):].strip(" —-")
+        if line.strip().upper().startswith("ESTADO:"):
+            rest = line.split(":", 1)[1].strip()
+            for s in ("ACCIÓN", "ACCION", "REVISAR", "NORMAL"):
+                if s in rest.upper():
+                    status = "ACCIÓN" if "ACCI" in s else s
+                    reason = rest[rest.upper().find(s)+len(s):].strip(" —-")
                     break
-        if ls.startswith("BLOQUEADOR_ACTIVO:"):
-            blocker = line.split(":",1)[1].strip()
+            break
 
     clean = "\n".join(l for l in text.split("\n")
-                      if not l.strip().upper().startswith(("VEREDICTO:","BLOQUEADOR_ACTIVO:"))).strip()
-    return {"analysis": clean, "verdict": verdict, "reason": reason, "blocker_groq": blocker}
+                      if not l.strip().upper().startswith("ESTADO:")).strip()
+    return {"analysis": clean, "status": status, "reason": reason}
 
 # ════════════════════════════════════════════════════════════════
 #  ENDPOINTS
@@ -370,35 +461,88 @@ async def call_groq(prompt: str) -> dict:
 
 @app.get("/health")
 async def health():
-    return {"status":"ok","version":"4.0","av_set":bool(AV_KEY),"groq_set":bool(GROQ_KEY)}
+    return {
+        "status": "ok", "version": "1.0",
+        "groq_set": bool(GROQ_KEY),
+        "logs_loaded": list(LOG_STORE.keys()),
+        "portfolio": list(PORTFOLIO.keys()),
+    }
 
-@app.get("/market")
-async def market():
-    try:
-        daily, candles, source = await get_data(6)
-        return evaluate_full(daily, candles, source)
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+@app.get("/portfolio_info")
+async def portfolio_info():
+    """Toda la info estática del portafolio para el frontend."""
+    return {ea: {
+        "name": info["name"], "symbol": info["symbol"], "tf": info["tf"],
+        "color": info["color"], "strategy": info["strategy"],
+        "IS": info["IS"], "OOS": info["OOS"],
+        "expected_trades_month": info.get("expected_trades_month"),
+        "window_gmt": info.get("window_gmt"),
+        "lots_fxpig": str(info.get("lots_fxpig", "—")),
+        "sl": str(info.get("sl", "Dinámico")),
+        "tp": str(info.get("tp", "Dinámico")),
+    } for ea, info in PORTFOLIO.items()}
 
-@app.get("/analyze")
-async def analyze():
-    try:
-        daily, candles, source = await get_data(6)
-        ev      = evaluate_full(daily, candles, source)
-        prompt  = build_prompt(ev)
-        groq_r  = await call_groq(prompt)
-        return {**ev, **groq_r}
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+@app.post("/upload/{ea_key}")
+async def upload(ea_key: str, file: UploadFile = File(...)):
+    """Sube CSV de un EA específico."""
+    if ea_key not in PORTFOLIO and ea_key != "auto":
+        return JSONResponse({"error": f"EA '{ea_key}' no reconocido"}, status_code=400)
+    content = (await file.read()).decode("utf-8", errors="replace")
+    data = parse_log(content)
+    if "error" in data:
+        return JSONResponse({"error": data["error"]}, status_code=422)
+    # Si auto-detectó, guardar con la key detectada
+    key = data.get("ea_key", ea_key)
+    LOG_STORE[key] = data
+    return {"status": "ok", "ea_key": key, "ea_name": data["ea_name"],
+            "trades": data["trades_open"], "status_det": data["status"]}
 
-@app.get("/history")
-async def history():
-    """Solo serie histórica de 6 meses para el gráfico"""
-    try:
-        daily, _, source = await get_data(6)
-        return {"daily": daily, "atr_series": atr_series_daily(daily), "source": source}
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+@app.get("/status/{ea_key}")
+async def status(ea_key: str):
+    """Datos parseados de un EA."""
+    if ea_key not in LOG_STORE:
+        return JSONResponse({"error": "Sin log cargado para este EA"}, status_code=404)
+    d = LOG_STORE[ea_key]
+    return {k: v for k, v in d.items() if k not in ("recent_trades", "recent_closes")}
+
+@app.get("/analyze/{ea_key}")
+async def analyze(ea_key: str):
+    """Datos + análisis Groq de un EA."""
+    if ea_key not in LOG_STORE:
+        return JSONResponse({"error": "Sin log cargado"}, status_code=404)
+    data   = LOG_STORE[ea_key]
+    prompt = build_ea_prompt(data)
+    groq_r = await call_groq(prompt)
+    return {**data, **groq_r}
+
+@app.get("/analyze_all")
+async def analyze_all():
+    """Analiza todos los EAs con log cargado."""
+    if not LOG_STORE:
+        return JSONResponse({"error": "No hay logs cargados"}, status_code=404)
+    results = {}
+    import asyncio
+    tasks = {k: call_groq(build_ea_prompt(v)) for k, v in LOG_STORE.items()}
+    for key, task in tasks.items():
+        groq_r = await task
+        results[key] = {**LOG_STORE[key], **groq_r}
+    return results
+
+@app.get("/portfolio_status")
+async def portfolio_status():
+    """Resumen rápido de todos los EAs (sin Groq)."""
+    result = {}
+    for key, info in PORTFOLIO.items():
+        if key in LOG_STORE:
+            d = LOG_STORE[key]
+            result[key] = {
+                "status": d["status"], "reason": d["status_reason"],
+                "trades": d["trades_open"], "sl": d["sl_count"],
+                "blocks": d["dominant_block"], "loaded": True,
+            }
+        else:
+            result[key] = {"status": "SIN_DATOS", "loaded": False}
+    return result
 
 @app.get("/", response_class=HTMLResponse)
 async def ui():

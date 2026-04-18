@@ -4,133 +4,251 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>RMv8 Agent</title>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Portfolio Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{
-  --bg:#080a0f;--bg2:#0d1117;--bg3:#111820;
-  --border:#1a2333;--border2:#243040;
-  --text:#c8d8e8;--text2:#6a8099;--text3:#2a3d52;
-  --green:#00e5a0;--red:#ff4060;--yellow:#ffcc00;
-  --blue:#4488ff;--orange:#ff8844;--purple:#a855f7;
-  --mono:'Space Mono',monospace;--sans:'Syne',sans-serif;
+:root {
+  --bg:     #07090e;
+  --bg2:    #0c0f17;
+  --bg3:    #111620;
+  --bg4:    #161c2a;
+  --border: #1c2438;
+  --border2:#253044;
+  --text:   #d4e0f0;
+  --text2:  #5a7090;
+  --text3:  #243050;
+  --green:  #00d97e;
+  --red:    #ff3d5a;
+  --yellow: #f5c842;
+  --blue:   #3d8eff;
+  --orange: #ff7e30;
+  --purple: #9b6cff;
+  --teal:   #00c4b8;
+  --pink:   #e040a0;
+  --gold:   #d4a017;
+  --mono:   'DM Mono', monospace;
+  --display:'Bebas Neue', sans-serif;
+  --sans:   'DM Sans', sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:12px;overflow-x:hidden}
-body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,229,160,.012) 2px,rgba(0,229,160,.012) 4px);pointer-events:none;z-index:0}
-.wrap{position:relative;z-index:1;padding:14px 12px 80px;max-width:700px;margin:0 auto}
+html,body{min-height:100%;overscroll-behavior:none}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--mono);
+  font-size:12px;
+  overflow-x:hidden;
+}
 
-/* HEADER */
-.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:1px solid var(--border2);margin-bottom:14px}
-.badge{font-family:var(--sans);font-size:17px;font-weight:800;color:var(--green)}
-.sub{font-size:9px;color:var(--text2);letter-spacing:.12em;text-transform:uppercase;margin-top:3px;display:flex;align-items:center;gap:5px}
-.dot{width:6px;height:6px;border-radius:50%;background:var(--text3);flex-shrink:0}
-.dot.live{background:var(--green);box-shadow:0 0 6px var(--green);animation:p 2s infinite}
-.dot.think{background:var(--yellow);box-shadow:0 0 6px var(--yellow);animation:p .7s infinite}
-.dot.err{background:var(--red)}
-@keyframes p{0%,100%{opacity:1}50%{opacity:.3}}
+/* Noise texture overlay */
+body::before {
+  content:'';
+  position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:0;opacity:0.4;
+}
 
-/* CONFIG */
-.cfg{background:var(--bg2);border:1px solid var(--border);padding:11px 12px;margin-bottom:12px}
-.cfg-t{font-size:8px;color:var(--text2);letter-spacing:.12em;text-transform:uppercase;margin-bottom:7px}
-.inp{width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:11px;padding:7px 10px;outline:none;-webkit-appearance:none}
-.inp:focus{border-color:var(--green)}
-.cfg-btns{display:flex;gap:6px;margin-top:7px}
+.wrap {position:relative;z-index:1;max-width:780px;margin:0 auto;padding:16px 12px 100px}
 
-/* BLOCKER CARD — lo más importante */
-.blocker-card{padding:14px 13px;margin-bottom:12px;border:2px solid;position:relative;overflow:hidden}
-.blocker-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px}
-.blocker-card.atr_block{border-color:rgba(255,64,96,.4);background:rgba(255,64,96,.06)}
-.blocker-card.atr_block::before{background:var(--red)}
-.blocker-card.no_trigger{border-color:rgba(255,204,0,.4);background:rgba(255,204,0,.06)}
-.blocker-card.no_trigger::before{background:var(--yellow)}
-.blocker-card.time_filter{border-color:rgba(68,136,255,.3);background:rgba(68,136,255,.05)}
-.blocker-card.time_filter::before{background:var(--blue)}
-.blocker-card.open{border-color:rgba(0,229,160,.5);background:rgba(0,229,160,.08)}
-.blocker-card.open::before{background:var(--green)}
-.bl-title{font-size:8px;color:var(--text2);letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px}
-.bl-name{font-family:var(--sans);font-size:16px;font-weight:800;margin-bottom:4px}
-.bl-name.red{color:var(--red)}.bl-name.yellow{color:var(--yellow)}
-.bl-name.blue{color:var(--blue)}.bl-name.green{color:var(--green)}
-.bl-desc{font-size:10px;color:var(--text2);line-height:1.7}
-.bl-action{margin-top:8px;padding:7px 10px;background:var(--bg3);border:1px solid var(--border2);font-size:10px;color:var(--text);line-height:1.7}
-.bl-action b{color:var(--yellow)}
+/* ── HEADER ──────────────────────────────────────────────── */
+.hdr {
+  padding:14px 0 12px;
+  border-bottom:1px solid var(--border2);
+  margin-bottom:16px;
+  display:flex;justify-content:space-between;align-items:flex-end;
+}
+.logo {
+  font-family:var(--display);
+  font-size:28px;
+  letter-spacing:2px;
+  line-height:1;
+  background: linear-gradient(135deg, #fff 0%, #5a7090 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.logo-sub {
+  font-family:var(--mono);font-size:8px;
+  color:var(--text2);letter-spacing:0.18em;text-transform:uppercase;
+  margin-top:3px;display:flex;align-items:center;gap:6px;
+}
+.pulse {width:5px;height:5px;border-radius:50%;background:var(--text3);flex-shrink:0}
+.pulse.live{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
+.pulse.busy{background:var(--yellow);box-shadow:0 0 8px var(--yellow);animation:pulse .6s infinite}
+.pulse.err{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 
-/* STATS row */
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
-.sc{background:var(--bg2);border:1px solid var(--border);padding:8px 10px;position:relative;overflow:hidden}
-.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--border2)}
-.sc.g::before{background:var(--green)}.sc.y::before{background:var(--yellow)}
-.sc.b::before{background:var(--blue)}.sc.r::before{background:var(--red)}.sc.p::before{background:var(--purple)}
-.sl{font-size:8px;color:var(--text2);letter-spacing:.09em;text-transform:uppercase;margin-bottom:2px}
-.sv{font-size:13px;font-weight:700;line-height:1}
-.sv.g{color:var(--green)}.sv.y{color:var(--yellow)}.sv.r{color:var(--red)}.sv.b{color:var(--blue)}
-.ss{font-size:8px;color:var(--text3);margin-top:2px}
+/* ── CONFIG ──────────────────────────────────────────────── */
+.cfg {
+  background:var(--bg2);border:1px solid var(--border);
+  padding:12px;margin-bottom:14px;
+}
+.cfg-t{font-size:8px;color:var(--text2);letter-spacing:.15em;text-transform:uppercase;margin-bottom:7px}
+.inp {
+  width:100%;background:var(--bg);border:1px solid var(--border2);
+  color:var(--text);font-family:var(--mono);font-size:11px;
+  padding:7px 10px;outline:none;-webkit-appearance:none;
+}
+.inp:focus{border-color:var(--blue)}
+.row{display:flex;gap:6px;margin-top:7px}
 
-/* INDICADORES */
-.mc{background:var(--bg2);border:1px solid var(--border);padding:11px 12px;margin-bottom:10px}
-.mc-t{font-size:8px;color:var(--text2);letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px}
-.ir{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border)}
-.ir:last-child{border-bottom:none}
-.in{color:var(--text2);font-size:10px}
-.iv{font-size:11px;font-weight:700}
-.iv.ok{color:var(--green)}.iv.ko{color:var(--red)}.iv.warn{color:var(--yellow)}.iv.n{color:var(--text)}.iv.b{color:var(--blue)}
+/* ── BUTTONS ──────────────────────────────────────────────── */
+.btn {
+  background:transparent;border:1px solid var(--border2);
+  color:var(--text);font-family:var(--mono);font-size:10px;
+  padding:8px 12px;cursor:pointer;letter-spacing:.07em;
+  text-transform:uppercase;transition:border-color .15s,color .15s;
+  -webkit-appearance:none;white-space:nowrap;
+}
+.btn:active{opacity:.6}
+.btn.pri{background:var(--green);border-color:var(--green);color:#060a0f;font-weight:500}
+.btn.sm{padding:5px 8px;font-size:9px}
+.btn:disabled{opacity:.25;pointer-events:none}
 
-/* ATR gauge */
-.gt{height:4px;background:var(--border2);border-radius:2px;position:relative;margin:5px 0 2px;overflow:visible}
-.gf{height:100%;border-radius:2px;transition:width .7s ease}
-.gth{position:absolute;top:-4px;width:2px;height:12px;background:var(--yellow);left:70%}
-.gl{display:flex;justify-content:space-between;font-size:8px;color:var(--text3)}
+/* ── STATUS BAR ──────────────────────────────────────────────── */
+.status-bar {
+  display:grid;grid-template-columns:repeat(3,1fr);gap:6px;
+  margin-bottom:14px;
+}
+.sb-card {
+  background:var(--bg2);border:1px solid var(--border);
+  padding:8px 10px;
+  display:flex;flex-direction:column;gap:2px;
+}
+.sb-label{font-size:8px;color:var(--text2);letter-spacing:.12em;text-transform:uppercase}
+.sb-val{font-family:var(--display);font-size:18px;letter-spacing:1px;line-height:1}
 
-/* GRÁFICO HISTÓRICO — mini sparklines */
-.chart-wrap{background:var(--bg2);border:1px solid var(--border);padding:11px 12px;margin-bottom:12px}
-.chart-t{font-size:8px;color:var(--text2);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between}
-canvas{width:100%!important;height:120px!important}
-.chart-legend{display:flex;gap:12px;margin-top:6px;font-size:8px;color:var(--text2)}
-.chart-legend span{display:flex;align-items:center;gap:4px}
-.leg-dot{width:8px;height:3px;border-radius:1px}
+/* ── EA GRID ──────────────────────────────────────────────── */
+.ea-grid {display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
 
-/* BB viz */
-.bbv{height:30px;background:var(--bg);border:1px solid var(--border);position:relative;margin:5px 0;overflow:hidden}
-.bbl{position:absolute;left:0;right:0;height:1px}
-.bbp{position:absolute;width:7px;height:7px;border-radius:50%;transform:translate(-50%,-50%);transition:left .5s}
+.ea-card {
+  background:var(--bg2);
+  border:1px solid var(--border);
+  position:relative;overflow:hidden;
+  transition:border-color .2s;
+}
+.ea-card::before {
+  content:'';position:absolute;top:0;left:0;bottom:0;width:3px;
+}
+/* Status colors set via JS */
+.ea-card.NORMAL::before{background:var(--green)}
+.ea-card.REVISAR::before{background:var(--yellow)}
+.ea-card.ACCIÓN::before{background:var(--red)}
+.ea-card.SIN_DATOS::before{background:var(--text3)}
 
-/* BOTONES */
-.btns{display:flex;gap:6px;margin-bottom:12px}
-.btn{background:transparent;border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:10px;padding:9px 10px;cursor:pointer;letter-spacing:.06em;text-transform:uppercase;transition:all .15s;flex:1;text-align:center;-webkit-appearance:none}
-.btn:active{opacity:.7}
-.btn.pri{background:var(--green);border-color:var(--green);color:var(--bg);font-weight:700}
-.btn.act{background:var(--orange);border-color:var(--orange);color:var(--bg);font-weight:700}
-.btn:disabled{opacity:.3;pointer-events:none}
+.ea-header {
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 12px 8px;
+  cursor:pointer;
+  border-bottom:1px solid var(--border);
+  user-select:none;
+}
+.ea-title-row{display:flex;align-items:center;gap:8px}
+.ea-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.ea-name{font-family:var(--display);font-size:15px;letter-spacing:1px}
+.ea-sym{font-size:9px;color:var(--text2);letter-spacing:.1em}
+.ea-status-badge {
+  font-size:8px;font-weight:500;letter-spacing:.12em;
+  text-transform:uppercase;padding:3px 7px;border:1px solid;
+}
+.ea-status-badge.NORMAL{color:var(--green);border-color:rgba(0,217,126,.3);background:rgba(0,217,126,.07)}
+.ea-status-badge.REVISAR{color:var(--yellow);border-color:rgba(245,200,66,.3);background:rgba(245,200,66,.07)}
+.ea-status-badge.ACCIÓN{color:var(--red);border-color:rgba(255,61,90,.3);background:rgba(255,61,90,.07)}
+.ea-status-badge.SIN_DATOS{color:var(--text3);border-color:var(--border);background:transparent}
 
-/* AGENTE */
-.agent{background:var(--bg2);border:1px solid var(--border2);margin-bottom:12px}
-.agh{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid var(--border);background:var(--bg3)}
-.agt{font-family:var(--sans);font-size:11px;font-weight:700}
-.agb{padding:12px;min-height:140px}
-.agtxt{font-size:11px;line-height:1.9;color:var(--text);white-space:pre-wrap}
+.ea-body {display:none;padding:11px 12px}
+.ea-body.open{display:block}
 
-/* DECISIÓN */
-.dec-wrap{padding:0 12px 12px}
-.dec{border:1px solid var(--border2);padding:11px;background:var(--bg)}
-.dec-lbl{font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--text2);margin-bottom:4px}
-.dec-v{font-family:var(--sans);font-size:16px;font-weight:800}
-.dec-v.wait{color:var(--yellow)}.dec-v.ready{color:var(--green)}.dec-v.caution{color:var(--orange)}
-.dec-r{margin-top:4px;font-size:10px;color:var(--text2);line-height:1.7}
+/* Upload drop zone */
+.drop-zone {
+  border:1px dashed var(--border2);padding:12px;
+  text-align:center;cursor:pointer;
+  transition:border-color .15s;margin-bottom:10px;
+}
+.drop-zone:hover{border-color:var(--blue)}
+.drop-zone-text{font-size:9px;color:var(--text2);letter-spacing:.1em;text-transform:uppercase}
 
-/* ATR HISTORY TABLE */
-.hist-atr{background:var(--bg2);border:1px solid var(--border);margin-bottom:12px}
-.ha-hdr{padding:8px 12px;border-bottom:1px solid var(--border);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);display:flex;justify-content:space-between}
-.ha-row{display:grid;grid-template-columns:80px 1fr 50px 50px;gap:6px;padding:5px 12px;border-bottom:1px solid var(--border);align-items:center;font-size:10px}
-.ha-row:last-child{border-bottom:none}
-.ha-bar{height:4px;border-radius:2px;background:var(--border2);position:relative;overflow:hidden}
-.ha-fill{height:100%;border-radius:2px}
-.ha-thresh{position:absolute;top:0;bottom:0;width:1px;background:var(--yellow);left:70%}
+/* Metrics grid */
+.metrics {display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px}
+.metric {background:var(--bg3);padding:7px 9px}
+.m-label{font-size:8px;color:var(--text2);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px}
+.m-val{font-size:13px;font-weight:500;line-height:1}
+.m-val.green{color:var(--green)}.m-val.red{color:var(--red)}
+.m-val.yellow{color:var(--yellow)}.m-val.blue{color:var(--blue)}
 
-.err{background:rgba(255,64,96,.08);border:1px solid rgba(255,64,96,.3);padding:10px 12px;font-size:10px;color:var(--red);line-height:1.7}
+/* Blocks list */
+.blocks {margin-bottom:10px}
+.block-row {
+  display:flex;justify-content:space-between;align-items:center;
+  padding:3px 0;border-bottom:1px solid var(--border);font-size:10px;
+}
+.block-row:last-child{border-bottom:none}
+.block-name{color:var(--text2)}
+.block-count{
+  font-family:var(--display);font-size:11px;letter-spacing:1px;
+  color:var(--text3);
+}
+
+/* IS/OOS comparison */
+.isoos {
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:1px;background:var(--border);
+  border:1px solid var(--border);margin-bottom:10px;
+}
+.isoos-col{background:var(--bg3);padding:8px 9px}
+.isoos-hdr{font-size:8px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px}
+.isoos-hdr.is{color:var(--text3)}
+.isoos-hdr.oos{color:var(--blue)}
+.isoos-row{display:flex;justify-content:space-between;margin-bottom:3px;font-size:10px}
+.isoos-k{color:var(--text2)}
+.isoos-v{font-weight:500}
+
+/* Analysis */
+.analysis-wrap{background:var(--bg3);border:1px solid var(--border);padding:10px}
+.analysis-label{font-size:8px;color:var(--text2);letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+.analysis-text{font-family:var(--sans);font-size:11px;line-height:1.75;color:var(--text);white-space:pre-wrap}
+
+/* verdict */
+.verdict {
+  padding:8px 10px;margin-top:8px;
+  display:flex;align-items:center;gap:8px;
+}
+.verdict.NORMAL{background:rgba(0,217,126,.08);border:1px solid rgba(0,217,126,.2)}
+.verdict.REVISAR{background:rgba(245,200,66,.08);border:1px solid rgba(245,200,66,.2)}
+.verdict.ACCIÓN{background:rgba(255,61,90,.08);border:1px solid rgba(255,61,90,.2)}
+.verdict-word{font-family:var(--display);font-size:16px;letter-spacing:2px;flex-shrink:0}
+.verdict-word.NORMAL{color:var(--green)}
+.verdict-word.REVISAR{color:var(--yellow)}
+.verdict-word.ACCIÓN{color:var(--red)}
+.verdict-reason{font-family:var(--sans);font-size:10px;color:var(--text2);line-height:1.5}
+
+/* Strategy info */
+.strat-info {
+  margin-bottom:10px;padding:8px 9px;
+  background:var(--bg4);border-left:2px solid;
+  font-family:var(--sans);font-size:10px;line-height:1.7;color:var(--text2);
+}
+
+/* Loading dots */
 .ld span{animation:bk 1.2s infinite;display:inline-block}
-.ld span:nth-child(2){animation-delay:.2s}.ld span:nth-child(3){animation-delay:.4s}
+.ld span:nth-child(2){animation-delay:.2s}
+.ld span:nth-child(3){animation-delay:.4s}
 @keyframes bk{0%,80%,100%{opacity:0}40%{opacity:1}}
+
+/* ANALYZE ALL button */
+.analyze-all-wrap{margin-bottom:14px;display:flex;gap:6px;flex-wrap:wrap}
+
+/* Progress bar mini */
+.prog{height:2px;background:var(--border2);position:relative;margin-top:5px}
+.prog-fill{height:100%;transition:width .5s;position:absolute;top:0;left:0}
+
+/* Footer frase */
+.rule-banner {
+  background:var(--bg2);border:1px solid var(--border2);
+  padding:10px 12px;margin-bottom:14px;
+  font-family:var(--sans);font-size:10px;color:var(--text2);line-height:1.7;
+  border-left:2px solid var(--text3);
+}
+.rule-banner strong{color:var(--text);display:block;margin-bottom:2px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase}
 </style>
 </head>
 <body>
@@ -139,353 +257,447 @@ canvas{width:100%!important;height:120px!important}
 <!-- HEADER -->
 <div class="hdr">
   <div>
-    <div class="badge">RMv8 AGENT v4</div>
-    <div class="sub"><span class="dot" id="dot"></span><span id="st">Configurando...</span></div>
+    <div class="logo">PORTFOLIO<br>MONITOR</div>
+    <div class="logo-sub">
+      <span class="pulse" id="pulse"></span>
+      <span id="statusText">Configurando...</span>
+    </div>
   </div>
   <div style="text-align:right">
-    <div style="font-size:9px;color:var(--text2)">CADCHF · M30 · 6 meses</div>
-    <div style="font-size:9px;color:var(--text3);margin-top:2px" id="ts">—</div>
+    <div style="font-size:9px;color:var(--text2)">FXIFY $15K · 6 EAs</div>
+    <div style="font-size:9px;color:var(--text3);margin-top:2px" id="lastUpdate">—</div>
   </div>
 </div>
 
 <!-- CONFIG -->
 <div class="cfg" id="cfgPanel">
-  <div class="cfg-t">// URL del backend (Railway)</div>
-  <input class="inp" type="url" id="burl" placeholder="https://rmv8-agent-production.up.railway.app" autocomplete="off" autocorrect="off" spellcheck="false">
-  <div class="cfg-btns">
-    <button class="btn pri" onclick="saveCfg()">Guardar y conectar</button>
+  <div class="cfg-t">// Backend URL (Railway)</div>
+  <input class="inp" type="url" id="backendUrl"
+    placeholder="https://rmv8-agent-production.up.railway.app"
+    autocomplete="off" autocorrect="off" spellcheck="false">
+  <div class="row">
+    <button class="btn pri" onclick="saveConfig()">Conectar</button>
     <button class="btn" onclick="testConn()">Probar</button>
+    <button class="btn" onclick="refreshAll()" id="btnRefresh" disabled>↻ Refresh</button>
   </div>
 </div>
 
-<!-- BLOQUEADOR ACTIVO — el insight más importante -->
-<div class="blocker-card" id="blockerCard" style="display:none">
-  <div class="bl-title">// Bloqueador activo del EA</div>
-  <div class="bl-name" id="blName">—</div>
-  <div class="bl-desc" id="blDesc">—</div>
-  <div class="bl-action" id="blAction">—</div>
+<!-- REGLA OPERATIVA -->
+<div class="rule-banner">
+  <strong>// Regla operativa — período de observación</strong>
+  No se toca ningún EA durante los primeros 3 meses. Solo se monitorea.
+  Pregunta central: <em>¿Está el comportamiento live dentro de lo que predice el backtest?</em>
 </div>
 
-<!-- STATS -->
-<div class="stats">
-  <div class="sc g"><div class="sl">WR OOS</div><div class="sv g">95.2%</div><div class="ss">42 trades</div></div>
-  <div class="sc y"><div class="sl">ATR umbral</div><div class="sv" id="atrPctStat" style="font-size:11px">—%</div><div class="ss">del mínimo</div></div>
-  <div class="sc b"><div class="sl">Dist. BB</div><div class="sv b" id="distStat" style="font-size:11px">—p</div><div class="ss">al lower</div></div>
-</div>
-
-<!-- GRÁFICO 6 MESES -->
-<div class="chart-wrap">
-  <div class="chart-t">
-    <span>// ATR M30 estimado — 6 meses</span>
-    <span id="chartSource" style="font-size:8px;color:var(--text3)">—</span>
+<!-- STATUS BAR -->
+<div class="status-bar" id="statusBar">
+  <div class="sb-card">
+    <div class="sb-label">EAs con log</div>
+    <div class="sb-val" id="sbLoaded" style="color:var(--text3)">0/6</div>
   </div>
-  <canvas id="atrChart"></canvas>
-  <div class="chart-legend">
-    <span><span class="leg-dot" style="background:var(--blue)"></span>ATR M30 est.</span>
-    <span><span class="leg-dot" style="background:var(--yellow)"></span>Umbral 0.0005</span>
-    <span><span class="leg-dot" style="background:var(--green)"></span>Precio CADCHF</span>
+  <div class="sb-card">
+    <div class="sb-label">Estado global</div>
+    <div class="sb-val" id="sbGlobal" style="color:var(--text3)">—</div>
+  </div>
+  <div class="sb-card">
+    <div class="sb-label">Alertas</div>
+    <div class="sb-val" id="sbAlerts" style="color:var(--text3)">—</div>
   </div>
 </div>
 
-<!-- INDICADORES EN VIVO -->
-<div class="mc">
-  <div class="mc-t">// Indicadores M30 actuales</div>
-  <div class="ir"><span class="in">ATR(38) M30</span><span class="iv n" id="atrV">—</span></div>
-  <div class="gt"><div class="gf" id="atrF" style="width:0%;background:var(--red)"></div><div class="gth"></div></div>
-  <div class="gl"><span>0</span><span id="atrPctLbl">—</span></div>
-  <div class="ir" style="margin-top:4px"><span class="in">Tendencia ATR (M30)</span><span class="iv n" id="atrTr">—</span></div>
-  <div class="ir"><span class="in">Precio CADCHF</span><span class="iv n" id="prc">—</span></div>
-  <div class="ir"><span class="in">BB Upper (30,2.4)</span><span class="iv n" id="bbU">—</span></div>
-  <div class="ir"><span class="in">BB Lower (30,2.4)</span><span class="iv n" id="bbL">—</span></div>
-  <div class="ir"><span class="in">Dist. lower / upper</span><span class="iv n" id="dists">—</span></div>
-  <div class="bbv">
-    <div class="bbl" style="top:0;background:rgba(68,136,255,.5)"></div>
-    <div class="bbl" style="top:50%;background:rgba(68,136,255,.2)"></div>
-    <div class="bbl" style="bottom:0;background:rgba(68,136,255,.5)"></div>
-    <div class="bbp" id="bbDot" style="left:50%;top:50%;color:var(--blue)">●</div>
-  </div>
+<!-- ANALYZE ALL -->
+<div class="analyze-all-wrap">
+  <button class="btn pri" id="btnAnalyzeAll" onclick="analyzeAll()" disabled>
+    ▶ Analizar todo con Groq
+  </button>
+  <button class="btn" id="btnStatusAll" onclick="refreshAll()" disabled>
+    ↻ Solo estado
+  </button>
 </div>
 
-<div class="mc">
-  <div class="mc-t">// Filtros del EA</div>
-  <div class="ir"><span class="in">Ventana GMT 09-20h</span><span class="iv n" id="fW">—</span></div>
-  <div class="ir"><span class="in">Hora GMT</span><span class="iv n" id="fG">—</span></div>
-  <div class="ir"><span class="in">Filtro ATR</span><span class="iv n" id="fA">—</span></div>
-  <div class="ir"><span class="in">Señal BB</span><span class="iv n" id="fB">—</span></div>
-  <div class="ir"><span class="in">Días sobre umbral (20d)</span><span class="iv n" id="fDays">—</span></div>
+<!-- EA CARDS -->
+<div class="ea-grid" id="eaGrid">
+  <!-- Populated by JS -->
 </div>
 
-<!-- BOTONES -->
-<div class="btns">
-  <button class="btn pri" id="btnA" onclick="analyze()" disabled>▶ Analizar</button>
-  <button class="btn" id="btnM" onclick="mkt()" disabled>↓ Datos</button>
-  <button class="btn" id="btnAu" onclick="toggleAuto()" disabled>⟳ Auto</button>
-</div>
+</div><!-- /wrap -->
 
-<!-- AGENTE GROQ -->
-<div class="agent">
-  <div class="agh">
-    <div class="agt">🤖 LLaMA 3.3 70B — Razonamiento profundo</div>
-    <div style="font-size:9px;color:var(--text3)" id="cnt">0 análisis</div>
-  </div>
-  <div class="agb" id="agb">
-    <div style="color:var(--text3);font-size:10px;line-height:2">
-      Configura la URL del backend arriba.<br>
-      El agente conoce los 3 bloqueadores reales del EA-RMv8,<br>
-      el patrón de logs de abril 2026, y razona sobre cuándo<br>
-      y por qué se activará la próxima señal.
-    </div>
-  </div>
-  <div id="decWrap" style="display:none">
-    <div class="dec-wrap">
-      <div class="dec">
-        <div class="dec-lbl">Veredicto del agente</div>
-        <div class="dec-v" id="decV">—</div>
-        <div class="dec-r" id="decR">—</div>
-      </div>
-    </div>
-  </div>
-</div>
+<input type="file" id="fileInput" accept=".csv" style="display:none">
 
-<!-- HISTORIA ATR (30 días) -->
-<div class="hist-atr" id="atrHistPanel" style="display:none">
-  <div class="ha-hdr"><span>// Historia ATR M30 — 30 días</span><span id="haDays">0 días</span></div>
-  <div id="haList"></div>
-</div>
-
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-const S={url:localStorage.getItem('rmv8_url')||'',count:0,auto:null,busy:false,chart:null};
+// ═══════════════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════════════
+const EA_ORDER = ['CRv7','RMv8','ScalpAsia','LDBOX','MilkyWay','XAUMS'];
+const EA_COLORS = {
+  CRv7:'#3b82f6', RMv8:'#9b6cff', ScalpAsia:'#00c4b8',
+  LDBOX:'#ff7e30', MilkyWay:'#e040a0', XAUMS:'#f5c842',
+};
+const EA_ICONS = {
+  CRv7:'↗', RMv8:'⇌', ScalpAsia:'◎', LDBOX:'⬡', MilkyWay:'✦', XAUMS:'◈',
+};
 
-if(S.url){
-  document.getElementById('burl').value=S.url;
-  enable();
-  st('live','Backend listo');
+let S = {
+  url: localStorage.getItem('pm_url') || '',
+  portfolio: {},
+  logs: {},
+  analyses: {},
+  expanded: new Set(),
+  pendingUpload: null,
+};
+
+if (S.url) {
+  document.getElementById('backendUrl').value = S.url;
+  enableButtons();
+  setStatus('live', 'Backend configurado');
+  loadPortfolioInfo();
 }
 
-function st(t,txt){document.getElementById('dot').className='dot '+t;document.getElementById('st').textContent=txt}
-function enable(){['btnA','btnM','btnAu'].forEach(id=>document.getElementById(id).disabled=false)}
-
-function saveCfg(){
-  const u=document.getElementById('burl').value.trim().replace(/\/$/,'');
-  if(!u)return;
-  S.url=u;localStorage.setItem('rmv8_url',u);
-  enable();st('live','URL guardada');mkt();
+// ═══════════════════════════════════════════════════════════
+//  STATUS
+// ═══════════════════════════════════════════════════════════
+function setStatus(type, text) {
+  const p = document.getElementById('pulse');
+  p.className = 'pulse ' + type;
+  document.getElementById('statusText').textContent = text;
 }
-
-async function testConn(){
-  if(!S.url)return;
-  try{
-    st('think','Probando...');
-    const r=await fetch(S.url+'/health');
-    const d=await r.json();
-    st('live',`Backend v${d.version||'?'} — AV:${d.av_set?'✓':'✗'} Groq:${d.groq_set?'✓':'✗'}`);
-  }catch(e){st('err','Error: '+e.message)}
-}
-
-async function mkt(){
-  if(!S.url)return;
-  try{
-    st('think','Cargando 6 meses CADCHF...');
-    const r=await fetch(S.url+'/market');
-    if(!r.ok)throw new Error(await r.text());
-    const d=await r.json();
-    if(d.error)throw new Error(d.error);
-    render(d);
-    renderHistory(d.atr_history||[]);
-    drawChart(d.atr_history||[]);
-    st('live','Datos actualizados · '+new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}));
-    document.getElementById('ts').textContent='Última vela: '+d.last_candle;
-    document.getElementById('chartSource').textContent=d.data_source||'';
-  }catch(e){st('err',e.message)}
-}
-
-async function analyze(){
-  if(S.busy||!S.url)return;
-  S.busy=true;document.getElementById('btnA').disabled=true;
-  st('think','LLaMA 3.3 razonando...');
-  document.getElementById('agb').innerHTML=`<div style="color:var(--text2);font-size:10px">Analizando bloqueadores y catalizadores macro<span class="ld"> <span>.</span><span>.</span><span>.</span></span></div>`;
-  document.getElementById('decWrap').style.display='none';
-  try{
-    const r=await fetch(S.url+'/analyze');
-    if(!r.ok)throw new Error(await r.text());
-    const d=await r.json();
-    if(d.error)throw new Error(d.error);
-    render(d);
-    renderHistory(d.atr_history||[]);
-    drawChart(d.atr_history||[]);
-    document.getElementById('agb').innerHTML=`<div class="agtxt">${esc(d.analysis)}</div>`;
-    document.getElementById('decWrap').style.display='block';
-    const vt=d.verdict||'ESPERAR';
-    const dv=document.getElementById('decV');
-    dv.textContent=vt.replace('_',' ');
-    dv.className='dec-v '+(vt==='SEÑAL_ACTIVA'?'ready':vt==='ALERTA'?'caution':'wait');
-    document.getElementById('decR').textContent=d.reason||'';
-    S.count++;document.getElementById('cnt').textContent=S.count+' análisis';
-    st('live','Análisis listo · '+new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}));
-  }catch(e){
-    document.getElementById('agb').innerHTML=`<div class="err">Error: ${esc(e.message)}</div>`;
-    st('err','Error');
-  }
-  S.busy=false;document.getElementById('btnA').disabled=false;
-}
-
-function render(d){
-  // ── Bloqueador activo ──
-  const blockerCard=document.getElementById('blockerCard');
-  blockerCard.style.display='block';
-  const br=d.block_reason||'TIME_FILTER';
-  const brKey=br.toLowerCase().replace('_filter_block','_block').replace('_filter','_filter');
-  
-  const BLOCKER_INFO={
-    'ATR_FILTER_BLOCK':{
-      cls:'atr_block',color:'red',
-      name:'ATR_FILTER_BLOCK — Volatilidad insuficiente',
-      desc:`El ATR(38) M30 está en ${d.atr_pct}% del umbral requerido (0.0005). El mercado CADCHF está en compresión — no hay suficiente rango de movimiento para que el EA entre.`,
-      action:`Necesario: ATR suba <b>${d.atr_gap_pips}p más</b> de volatilidad. Tendencia actual: ${d.atr_trend||'—'}. Buscar catalizador macro CAD o CHF.`
-    },
-    'NO_TRIGGER':{
-      cls:'no_trigger',color:'yellow',
-      name:'NO_TRIGGER — Precio en zona media',
-      desc:`ATR suficiente (${d.atr_pct}%). El precio (${d.price}) está dentro de las BB — no hay señal de sobreextensión. Igual que el 8 de abril (ATR 126%, pero 0 trades todo el día).`,
-      action:`Precio necesita moverse <b>${d.dist_lower_pips}p a la baja</b> (tocar lower ${d.bb?.lower}) O <b>${d.dist_upper_pips}p al alza</b> (tocar upper ${d.bb?.upper}).`
-    },
-    'TIME_FILTER':{
-      cls:'time_filter',color:'blue',
-      name:'TIME_FILTER — Fuera de ventana horaria',
-      desc:`Hora GMT actual: ${d.gmt_hour}:00. El EA solo opera entre 09:00 y 20:00 GMT. Este bloqueador es pasivo y se resuelve solo.`,
-      action:`El EA estará activo en <b>${d.gmt_hour<9?9-d.gmt_hour:24-(d.gmt_hour-9)}h aprox</b>. Los otros filtros (ATR + BB) se evaluarán cuando abra la ventana.`
-    },
-    'OPEN':{
-      cls:'open',color:'green',
-      name:'⚡ SEÑAL ACTIVA — Todos los filtros pasan',
-      desc:`ATR suficiente (${d.atr_pct}%), precio fuera de BB (señal ${d.bb_signal}), dentro de ventana GMT. El EA debería haber ejecutado.`,
-      action:`Verificar en MT5 que el EA esté corriendo y el trade se ejecutó correctamente.`
-    },
-  };
-  
-  const info=BLOCKER_INFO[br]||BLOCKER_INFO['TIME_FILTER'];
-  blockerCard.className='blocker-card '+info.cls;
-  document.getElementById('blName').textContent=info.name;
-  document.getElementById('blName').className='bl-name '+info.color;
-  document.getElementById('blDesc').textContent=info.desc;
-  document.getElementById('blAction').innerHTML=info.action;
-
-  // ── Stats rápidas ──
-  document.getElementById('atrPctStat').textContent=d.atr_pct+'%';
-  document.getElementById('atrPctStat').className='sv '+(d.atr_pct>=100?'g':d.atr_pct>=80?'y':'r');
-  document.getElementById('distStat').textContent=d.dist_lower_pips+'p';
-
-  // ── Indicadores ──
-  const atr=d.atr||0,th=0.0005;
-  const pct=Math.min(100,(atr/th)*70);
-  const col=d.atr_pass?'var(--green)':d.atr_pct>=80?'var(--yellow)':'var(--red)';
-  document.getElementById('atrV').textContent=atr.toFixed(6);
-  document.getElementById('atrV').className='iv '+(d.atr_pass?'ok':d.atr_pct>=80?'warn':'ko');
-  document.getElementById('atrF').style.cssText=`width:${pct}%;background:${col}`;
-  document.getElementById('atrPctLbl').textContent=d.atr_pct+'% del umbral (0.0005)';
-  document.getElementById('atrTr').textContent=d.atr_trend||'—';
-  document.getElementById('prc').textContent=d.price?.toFixed(5)||'—';
-  document.getElementById('bbU').textContent=d.bb?.upper?.toFixed(5)||'—';
-  document.getElementById('bbL').textContent=d.bb?.lower?.toFixed(5)||'—';
-  document.getElementById('dists').textContent=`${d.dist_lower_pips}p / ${d.dist_upper_pips}p`;
-
-  // BB dot
-  const pos=(d.price_pct_in_band||50)/100;
-  const dot=document.getElementById('bbDot');
-  dot.style.left=Math.max(4,Math.min(96,pos*100))+'%';
-  dot.style.color=pos>0.95?'var(--red)':pos<0.05?'var(--green)':'var(--blue)';
-
-  // Filtros
-  sf('fW',d.in_window,d.in_window?'✓ ACTIVA':'✗ FUERA');
-  document.getElementById('fG').textContent=`${d.gmt_hour||'?'}:${String(new Date().getUTCMinutes()).padStart(2,'0')} GMT`;
-  sf('fA',d.atr_pass,d.atr_pass?'✓ PASA':`✗ FALLA (${d.atr_pct}%)`);
-  sf('fB',!!d.bb_signal,d.bb_signal||'Sin señal (zona media)');
-  document.getElementById('fDays').textContent=`${d.days_above_threshold||0}/${d.days_total_recent||0} días`;
-  document.getElementById('fDays').className='iv '+(d.days_above_threshold>=(d.days_total_recent*0.6)?'ok':'warn');
-}
-
-function sf(id,ok,txt){const el=document.getElementById(id);el.textContent=txt;el.className='iv '+(ok?'ok':'ko')}
-
-function drawChart(hist){
-  if(!hist||!hist.length)return;
-  const canvas=document.getElementById('atrChart');
-  if(S.chart){S.chart.destroy();S.chart=null}
-  
-  const labels=hist.map(h=>h.date.substring(5));   // MM-DD
-  const atrData=hist.map(h=>h.atr_pct);
-  const priceData=hist.map(h=>h.close);
-  const threshold=hist.map(()=>100);
-
-  // Escalar precio al mismo eje que ATR%
-  const pMin=Math.min(...priceData),pMax=Math.max(...priceData);
-  const aMin=Math.min(...atrData),aMax=Math.max(...atrData);
-  const pScaled=priceData.map(p=>aMin+(p-pMin)/(pMax-pMin||1)*(aMax-aMin));
-
-  S.chart=new Chart(canvas,{
-    type:'line',
-    data:{
-      labels,
-      datasets:[
-        {label:'ATR%',data:atrData,borderColor:'#4488ff',borderWidth:1.5,pointRadius:0,fill:false,tension:.3},
-        {label:'Umbral',data:threshold,borderColor:'#ffcc00',borderWidth:1,borderDash:[4,4],pointRadius:0,fill:false},
-        {label:'Precio',data:pScaled,borderColor:'#00e5a0',borderWidth:1,pointRadius:0,fill:false,tension:.3},
-      ]
-    },
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{
-        callbacks:{label:ctx=>{
-          if(ctx.datasetIndex===0) return `ATR: ${ctx.raw.toFixed(1)}%`;
-          if(ctx.datasetIndex===1) return 'Umbral 100%';
-          const p=priceData[ctx.dataIndex];
-          return `Precio: ${p?.toFixed(5)}`;
-        }}
-      }},
-      scales:{
-        x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#2a3d52',font:{family:'Space Mono',size:8},maxTicksLimit:12}},
-        y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#2a3d52',font:{family:'Space Mono',size:8},callback:v=>v.toFixed(0)+'%'},min:0}
-      },
-      animation:{duration:400}
-    }
+function enableButtons() {
+  ['btnRefresh','btnAnalyzeAll','btnStatusAll'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = false;
   });
 }
 
-function renderHistory(hist){
-  const panel=document.getElementById('atrHistPanel');
-  const list=document.getElementById('haList');
-  if(!hist||!hist.length){panel.style.display='none';return}
-  panel.style.display='block';
-  const last30=hist.slice(-30);
-  document.getElementById('haDays').textContent=last30.length+' días';
-  list.innerHTML=last30.reverse().map(h=>{
-    const pct=Math.min(140,h.atr_pct);
-    const col=h.above_threshold?'var(--green)':h.atr_pct>=80?'var(--yellow)':'var(--red)';
-    const flag=h.above_threshold?'⚡':h.atr_pct>=80?'⚠':'·';
-    return `<div class="ha-row">
-      <span style="color:var(--text2)">${h.date.substring(5)}</span>
-      <div class="ha-bar"><div class="ha-fill" style="width:${Math.min(100,pct/140*100)}%;background:${col}"></div><div class="ha-thresh"></div></div>
-      <span style="color:${col};font-weight:700">${h.atr_pct.toFixed(0)}%</span>
-      <span style="color:var(--text3)">${flag}</span>
+// ═══════════════════════════════════════════════════════════
+//  BACKEND CALLS
+// ═══════════════════════════════════════════════════════════
+async function api(path, opts = {}) {
+  const r = await fetch(S.url + path, opts);
+  if (!r.ok) throw new Error((await r.json()).error || r.statusText);
+  return r.json();
+}
+
+async function saveConfig() {
+  const u = document.getElementById('backendUrl').value.trim().replace(/\/$/, '');
+  if (!u) return;
+  S.url = u;
+  localStorage.setItem('pm_url', u);
+  enableButtons();
+  setStatus('busy', 'Conectando...');
+  try {
+    const h = await api('/health');
+    setStatus('live', `v${h.version} — Groq:${h.groq_set ? '✓' : '✗'} Logs:${h.logs_loaded.join(',')||'ninguno'}`);
+    await loadPortfolioInfo();
+  } catch(e) { setStatus('err', e.message); }
+}
+
+async function testConn() {
+  if (!S.url) return;
+  try {
+    setStatus('busy', 'Probando...');
+    const h = await api('/health');
+    setStatus('live', `OK — Groq:${h.groq_set ? '✓' : '✗'} | Logs:[${h.logs_loaded.join(',')||'vacío'}]`);
+  } catch(e) { setStatus('err', e.message); }
+}
+
+async function loadPortfolioInfo() {
+  try {
+    S.portfolio = await api('/portfolio_info');
+    renderGrid();
+    await refreshAll();
+  } catch(e) { setStatus('err', 'Error cargando info: '+e.message); }
+}
+
+async function refreshAll() {
+  if (!S.url) return;
+  try {
+    setStatus('busy', 'Actualizando estado...');
+    const status = await api('/portfolio_status');
+    updateStatusBar(status);
+    for (const [key, val] of Object.entries(status)) {
+      if (val.loaded) {
+        S.logs[key] = val;
+        updateEACard(key, val);
+      }
+    }
+    setStatus('live', 'Estado actualizado · ' + new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}));
+    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'});
+  } catch(e) { setStatus('err', e.message); }
+}
+
+async function analyzeAll() {
+  if (!S.url) return;
+  const loaded = Object.keys(S.logs).filter(k => S.logs[k].loaded);
+  if (!loaded.length) { alert('Sube al menos un CSV primero'); return; }
+  setStatus('busy', 'Analizando con Groq...');
+  document.getElementById('btnAnalyzeAll').disabled = true;
+  try {
+    const all = await api('/analyze_all');
+    for (const [key, data] of Object.entries(all)) {
+      S.analyses[key] = data;
+      updateEACard(key, data, true);
+    }
+    setStatus('live', 'Análisis completo');
+  } catch(e) { setStatus('err', e.message); }
+  document.getElementById('btnAnalyzeAll').disabled = false;
+}
+
+async function analyzeEA(key) {
+  if (!S.url) return;
+  setStatus('busy', `Analizando ${key}...`);
+  const bodyEl = document.getElementById(`ea-body-${key}`);
+  const analysisEl = document.getElementById(`analysis-${key}`);
+  if (analysisEl) analysisEl.innerHTML = `<div style="color:var(--text2);font-size:10px">Razonando<span class="ld"> <span>.</span><span>.</span><span>.</span></span></div>`;
+  try {
+    const data = await api(`/analyze/${key}`);
+    S.analyses[key] = data;
+    S.logs[key] = { ...S.logs[key], ...data };
+    updateEACard(key, data, true);
+    setStatus('live', `${key} analizado`);
+  } catch(e) { setStatus('err', e.message); }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FILE UPLOAD
+// ═══════════════════════════════════════════════════════════
+function triggerUpload(key) {
+  S.pendingUpload = key;
+  const fi = document.getElementById('fileInput');
+  fi.onchange = () => uploadFile(key, fi.files[0]);
+  fi.value = '';
+  fi.click();
+}
+
+async function uploadFile(key, file) {
+  if (!file || !S.url) return;
+  setStatus('busy', `Subiendo CSV para ${key}...`);
+  const fd = new FormData();
+  fd.append('file', file);
+  try {
+    const r = await fetch(`${S.url}/upload/auto`, { method:'POST', body:fd });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    const detectedKey = d.ea_key;
+    S.logs[detectedKey] = { loaded: true, status: d.status_det, trades: d.trades };
+    setStatus('live', `${d.ea_name} cargado — ${d.trades} trades`);
+    // Re-fetch full status
+    const fullData = await api(`/status/${detectedKey}`);
+    S.logs[detectedKey] = fullData;
+    updateEACard(detectedKey, fullData, false);
+    updateStatusBar();
+  } catch(e) { setStatus('err', 'Upload error: '+e.message); }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════════
+function renderGrid() {
+  const grid = document.getElementById('eaGrid');
+  grid.innerHTML = EA_ORDER.map(key => buildEACard(key)).join('');
+}
+
+function buildEACard(key) {
+  const info = S.portfolio[key] || {};
+  const col = EA_COLORS[key] || '#fff';
+  const icon = EA_ICONS[key] || '·';
+  return `
+  <div class="ea-card SIN_DATOS" id="ea-card-${key}" style="--ea-col:${col}">
+    <div class="ea-header" onclick="toggleExpand('${key}')">
+      <div class="ea-title-row">
+        <div class="ea-dot" style="background:${col}"></div>
+        <div>
+          <div class="ea-name" style="color:${col}">${icon} ${key}</div>
+          <div class="ea-sym">${info.symbol||'?'} · ${info.tf||'?'} · ${info.strategy ? info.strategy.split(':')[0] : '—'}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="ea-status-badge SIN_DATOS" id="ea-badge-${key}">SIN LOG</span>
+        <span style="color:var(--text3);font-size:10px" id="ea-arrow-${key}">▾</span>
+      </div>
+    </div>
+    <div class="ea-body" id="ea-body-${key}">
+      <!-- Upload zone -->
+      <div class="drop-zone" onclick="triggerUpload('${key}')">
+        <div class="drop-zone-text">📁 Subir CSV del logger — ${key}</div>
+        <div style="font-size:8px;color:var(--text3);margin-top:3px">EACore_Logger CSV</div>
+      </div>
+      <!-- Strategy info -->
+      <div class="strat-info" style="border-color:${col}20">
+        <strong style="color:${col};font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase">Estrategia</strong>
+        ${info.strategy||'—'}<br>
+        <span style="color:var(--text3)">Ventana: ${info.window_gmt||'—'} · SL: ${info.sl||'Dyn'} · TP: ${info.tp||'Dyn'} · Lots FXPIG: ${info.lots_fxpig||'—'}</span>
+      </div>
+      <!-- IS/OOS -->
+      ${buildISOOS(key, info)}
+      <!-- Live metrics placeholder -->
+      <div id="live-metrics-${key}"></div>
+      <!-- Analysis -->
+      <div id="analysis-wrap-${key}" style="display:none">
+        <div class="analysis-wrap">
+          <div class="analysis-label">
+            <span>// Análisis Groq — LLaMA 3.3 70B</span>
+            <button class="btn sm" onclick="analyzeEA('${key}')">↻</button>
+          </div>
+          <div class="analysis-text" id="analysis-${key}">—</div>
+        </div>
+        <div id="verdict-${key}" class="verdict NORMAL" style="display:none">
+          <div class="verdict-word" id="verdict-word-${key}">—</div>
+          <div class="verdict-reason" id="verdict-reason-${key}">—</div>
+        </div>
+      </div>
+      <!-- Analyze button -->
+      <div style="margin-top:8px;display:flex;gap:6px" id="ea-actions-${key}" style="display:none">
+        <button class="btn pri sm" onclick="analyzeEA('${key}')" id="btn-analyze-${key}" disabled>
+          ▶ Analizar con Groq
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildISOOS(key, info) {
+  if (!info.IS) return '';
+  const is = info.IS, oos = info.OOS;
+  const wrColor = oos.wr >= is.wr ? 'var(--green)' : 'var(--yellow)';
+  const pfColor = oos.pf >= is.pf ? 'var(--green)' : 'var(--yellow)';
+  return `
+  <div class="isoos">
+    <div class="isoos-col">
+      <div class="isoos-hdr is">// IS Backtest</div>
+      <div class="isoos-row"><span class="isoos-k">Trades</span><span class="isoos-v">${is.trades}</span></div>
+      <div class="isoos-row"><span class="isoos-k">Win Rate</span><span class="isoos-v">${is.wr}%</span></div>
+      <div class="isoos-row"><span class="isoos-k">PF</span><span class="isoos-v">${is.pf}</span></div>
+      <div class="isoos-row"><span class="isoos-k">DD máx</span><span class="isoos-v" style="color:var(--yellow)">${is.dd}%</span></div>
+    </div>
+    <div class="isoos-col">
+      <div class="isoos-hdr oos">// OOS Validado</div>
+      <div class="isoos-row"><span class="isoos-k">Trades</span><span class="isoos-v">${oos.trades}</span></div>
+      <div class="isoos-row"><span class="isoos-k">Win Rate</span><span class="isoos-v" style="color:${wrColor}">${oos.wr}%</span></div>
+      <div class="isoos-row"><span class="isoos-k">PF</span><span class="isoos-v" style="color:${pfColor}">${oos.pf}</span></div>
+      <div class="isoos-row"><span class="isoos-k">DD máx</span><span class="isoos-v" style="color:var(--green)">${oos.dd}%</span></div>
+    </div>
+  </div>`;
+}
+
+function updateEACard(key, data, withAnalysis = false) {
+  const card = document.getElementById(`ea-card-${key}`);
+  const badge = document.getElementById(`ea-badge-${key}`);
+  const liveDiv = document.getElementById(`live-metrics-${key}`);
+  const analysisWrap = document.getElementById(`analysis-wrap-${key}`);
+  const actDiv = document.getElementById(`ea-actions-${key}`);
+  const btn = document.getElementById(`btn-analyze-${key}`);
+
+  if (!card) return;
+
+  const status = data.status || 'SIN_DATOS';
+  card.className = `ea-card ${status}`;
+  badge.className = `ea-status-badge ${status}`;
+  badge.textContent = status === 'SIN_DATOS' ? 'SIN LOG' : status;
+
+  // Live metrics
+  if (data.trades_open !== undefined) {
+    const blocks_html = Object.entries(data.blocks||{}).slice(0,5)
+      .map(([k,v]) => `<div class="block-row"><span class="block-name">${k}</span><span class="block-count">${v}</span></div>`)
+      .join('') || '<div style="font-size:9px;color:var(--text3)">Sin bloqueadores registrados</div>';
+
+    const atr_html = data.atr_avg ? `
+      <div class="block-row"><span class="block-name">ATR avg</span><span class="block-count">${data.atr_avg.toFixed(6)}</span></div>
+      <div class="block-row"><span class="block-name">ATR max</span><span class="block-count">${(data.atr_max||0).toFixed(6)}</span></div>
+    ` : '';
+
+    liveDiv.innerHTML = `
+    <div class="metrics">
+      <div class="metric">
+        <div class="m-label">Trades abiertos</div>
+        <div class="m-val ${data.trades_open>0?'green':'blue'}">${data.trades_open}</div>
+      </div>
+      <div class="metric">
+        <div class="m-label">SLs ejecutados</div>
+        <div class="m-val ${data.sl_count>0?'red':'green'}">${data.sl_count||0}</div>
+      </div>
+      <div class="metric">
+        <div class="m-label">PnL realizado</div>
+        <div class="m-val ${(data.realized_pnl||0)>=0?'green':'red'}">$${(data.realized_pnl||0).toFixed(2)}</div>
+      </div>
+      <div class="metric">
+        <div class="m-label">Spread avg/max</div>
+        <div class="m-val">${data.spread_avg||'—'}/${data.spread_max||'—'}p</div>
+      </div>
+    </div>
+    <div style="font-size:8px;color:var(--text2);letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px">// Bloqueadores</div>
+    <div class="blocks">${blocks_html}</div>
+    ${atr_html ? `<div style="font-size:8px;color:var(--text2);letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px">// ATR live</div><div class="blocks">${atr_html}</div>` : ''}
+    <div style="margin-top:6px;padding:6px 8px;background:var(--bg4);border-left:2px solid ${statusColor(status)};font-family:var(--sans);font-size:10px;color:var(--text2)">
+      ${data.status_reason||data.reason||'—'}
     </div>`;
-  }).join('');
+
+    if (btn) { btn.disabled = false; if (actDiv) actDiv.style.display = 'flex'; }
+  }
+
+  // Analysis
+  if (withAnalysis && data.analysis) {
+    analysisWrap.style.display = 'block';
+    const aEl = document.getElementById(`analysis-${key}`);
+    if (aEl) aEl.textContent = data.analysis;
+    const vEl = document.getElementById(`verdict-${key}`);
+    const vWord = document.getElementById(`verdict-word-${key}`);
+    const vReason = document.getElementById(`verdict-reason-${key}`);
+    if (vEl && data.status) {
+      vEl.style.display = 'flex';
+      vEl.className = `verdict ${data.status}`;
+      vWord.className = `verdict-word ${data.status}`;
+      vWord.textContent = data.status;
+      if (vReason) vReason.textContent = data.reason || '';
+    }
+  }
 }
 
-function toggleAuto(){
-  const b=document.getElementById('btnAu');
-  if(S.auto){clearInterval(S.auto);S.auto=null;b.textContent='⟳ Auto';b.className='btn';st('live','Auto off');}
-  else{analyze();S.auto=setInterval(()=>{mkt();analyze();},30*60*1000);b.textContent='⏹ Stop';b.className='btn act';st('live','Auto · cada 30min');}
+function statusColor(s) {
+  if (s === 'NORMAL') return 'var(--green)';
+  if (s === 'REVISAR') return 'var(--yellow)';
+  if (s === 'ACCIÓN') return 'var(--red)';
+  return 'var(--text3)';
 }
 
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}
+function updateStatusBar(status) {
+  const loaded = Object.values(S.logs).filter(v => v && v.loaded !== false).length;
+  document.getElementById('sbLoaded').textContent = `${loaded}/6`;
+  document.getElementById('sbLoaded').style.color = loaded > 0 ? 'var(--green)' : 'var(--text3)';
 
-// Reloj GMT
-setInterval(()=>{
-  const el=document.getElementById('fG');
-  if(el){const h=new Date().getUTCHours(),m=String(new Date().getUTCMinutes()).padStart(2,'0');el.textContent=`${h}:${m} GMT`;}
-},15000);
+  const statuses = Object.values(S.logs).map(v => v?.status).filter(Boolean);
+  const hasAction  = statuses.includes('ACCIÓN');
+  const hasRevisar = statuses.includes('REVISAR');
+  const allNormal  = statuses.length > 0 && statuses.every(s => s === 'NORMAL');
+
+  const globalEl = document.getElementById('sbGlobal');
+  const alertEl  = document.getElementById('sbAlerts');
+  if (hasAction) {
+    globalEl.textContent = 'ACCIÓN';
+    globalEl.style.color = 'var(--red)';
+  } else if (hasRevisar) {
+    globalEl.textContent = 'REVISAR';
+    globalEl.style.color = 'var(--yellow)';
+  } else if (allNormal) {
+    globalEl.textContent = 'NORMAL';
+    globalEl.style.color = 'var(--green)';
+  } else {
+    globalEl.textContent = '—';
+    globalEl.style.color = 'var(--text3)';
+  }
+
+  const alerts = statuses.filter(s => s !== 'NORMAL').length;
+  alertEl.textContent = alerts > 0 ? `${alerts} ⚠` : loaded > 0 ? '0' : '—';
+  alertEl.style.color = alerts > 0 ? 'var(--red)' : alerts === 0 && loaded > 0 ? 'var(--green)' : 'var(--text3)';
+}
+
+function toggleExpand(key) {
+  const body = document.getElementById(`ea-body-${key}`);
+  const arrow = document.getElementById(`ea-arrow-${key}`);
+  if (!body) return;
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  if (arrow) arrow.textContent = isOpen ? '▾' : '▴';
+}
 </script>
 </body>
 </html>
