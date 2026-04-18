@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>RMv8 Agent</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080a0f;--bg2:#0d1117;--bg3:#111820;
+  --border:#1a2333;--border2:#243040;
+  --text:#c8d8e8;--text2:#6a8099;--text3:#2a3d52;
+  --green:#00e5a0;--red:#ff4060;--yellow:#ffcc00;
+  --blue:#4488ff;--orange:#ff8844;
+  --mono:'Space Mono',monospace;--sans:'Syne',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:12px;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,229,160,.012) 2px,rgba(0,229,160,.012) 4px);pointer-events:none;z-index:0}
+
+.wrap{position:relative;z-index:1;padding:16px 12px 80px;max-width:700px;margin:0 auto}
+
+/* HEADER */
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid var(--border2);margin-bottom:16px}
+.badge{font-family:var(--sans);font-size:18px;font-weight:800;color:var(--green)}
+.sub{font-size:9px;color:var(--text2);letter-spacing:.14em;text-transform:uppercase;margin-top:3px;display:flex;align-items:center;gap:5px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block;flex-shrink:0}
+.dot.live{background:var(--green);box-shadow:0 0 6px var(--green);animation:p 2s infinite}
+.dot.think{background:var(--yellow);box-shadow:0 0 6px var(--yellow);animation:p .7s infinite}
+.dot.err{background:var(--red)}
+@keyframes p{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* CONFIG */
+.cfg{background:var(--bg2);border:1px solid var(--border);padding:12px;margin-bottom:14px;border-radius:2px}
+.cfg-t{font-size:9px;color:var(--text2);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px}
+.inp{width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:11px;padding:8px 10px;outline:none;border-radius:1px;-webkit-appearance:none}
+.inp:focus{border-color:var(--green)}
+.cfg-btns{display:flex;gap:7px;margin-top:8px}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+.sc{background:var(--bg2);border:1px solid var(--border);padding:8px 10px;position:relative;overflow:hidden}
+.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--border2)}
+.sc.g::before{background:var(--green)}.sc.y::before{background:var(--yellow)}
+.sc.b::before{background:var(--blue)}.sc.r::before{background:var(--red)}
+.sl{font-size:8px;color:var(--text2);letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px}
+.sv{font-size:14px;font-weight:700;line-height:1}
+.sv.green{color:var(--green)}.sv.yellow{color:var(--yellow)}.sv.red{color:var(--red)}
+.ss{font-size:8px;color:var(--text3);margin-top:2px}
+
+/* MARKET CARD */
+.mc{background:var(--bg2);border:1px solid var(--border);padding:11px 12px;margin-bottom:10px}
+.mc-t{font-size:8px;color:var(--text2);letter-spacing:.14em;text-transform:uppercase;margin-bottom:9px}
+.ir{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border)}
+.ir:last-child{border-bottom:none}
+.in{color:var(--text2);font-size:10px}
+.iv{font-size:11px;font-weight:700}
+.iv.ok{color:var(--green)}.iv.ko{color:var(--red)}.iv.warn{color:var(--yellow)}.iv.n{color:var(--text)}
+
+/* ATR gauge */
+.gt{height:3px;background:var(--border2);border-radius:2px;position:relative;margin:5px 0 3px;overflow:visible}
+.gf{height:100%;border-radius:2px;transition:width .7s ease}
+.gth{position:absolute;top:-3px;width:2px;height:9px;background:var(--yellow);left:70%}
+.gl{display:flex;justify-content:space-between;font-size:8px;color:var(--text3)}
+
+/* BB viz */
+.bbv{height:32px;background:var(--bg);border:1px solid var(--border);position:relative;margin:6px 0;overflow:hidden}
+.bbl{position:absolute;left:0;right:0;height:1px}
+.bbp{position:absolute;width:7px;height:7px;border-radius:50%;transform:translate(-50%,-50%);box-shadow:0 0 5px currentColor;transition:left .6s ease}
+
+/* REGIME */
+.regime{background:var(--bg3);border:1px solid var(--border2);padding:10px 12px;margin-bottom:10px}
+.regime-lbl{font-size:8px;color:var(--text2);letter-spacing:.12em;text-transform:uppercase;margin-bottom:4px}
+.regime-val{font-family:var(--sans);font-size:14px;font-weight:800;margin-bottom:5px}
+.regime-val.sev{color:var(--red)}.regime-val.mod{color:var(--yellow)}
+.regime-val.pre{color:var(--orange)}.regime-val.ok{color:var(--green)}.regime-val.wait{color:var(--blue)}
+.regime-detail{font-size:10px;color:var(--text2);line-height:1.7}
+
+/* BUTTONS */
+.btns{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.btn{background:transparent;border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:10px;padding:9px 12px;cursor:pointer;letter-spacing:.07em;text-transform:uppercase;transition:all .15s;border-radius:1px;flex:1;min-width:80px;text-align:center;-webkit-appearance:none}
+.btn:active{opacity:.7}
+.btn.pri{background:var(--green);border-color:var(--green);color:var(--bg);font-weight:700}
+.btn.act{background:var(--orange);border-color:var(--orange);color:var(--bg);font-weight:700}
+.btn:disabled{opacity:.3;pointer-events:none}
+
+/* AGENT PANEL */
+.agent{background:var(--bg2);border:1px solid var(--border2);margin-bottom:12px}
+.agh{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--bg3)}
+.agt{font-family:var(--sans);font-size:12px;font-weight:700}
+.agb{padding:13px 12px;min-height:160px}
+.agtxt{font-size:11px;line-height:1.9;color:var(--text);white-space:pre-wrap}
+
+/* DECISION */
+.dec-wrap{padding:0 12px 12px}
+.dec{border:1px solid var(--border2);padding:12px;background:var(--bg)}
+.dec-lbl{font-size:8px;letter-spacing:.16em;text-transform:uppercase;color:var(--text2);margin-bottom:5px}
+.dec-v{font-family:var(--sans);font-size:17px;font-weight:800;letter-spacing:-.5px}
+.dec-v.wait{color:var(--yellow)}.dec-v.ready{color:var(--green)}.dec-v.caution{color:var(--orange)}
+.dec-r{margin-top:5px;font-size:10px;color:var(--text2);line-height:1.7}
+
+/* HISTORY */
+.hist{background:var(--bg2);border:1px solid var(--border)}
+.hh{padding:8px 12px;border-bottom:1px solid var(--border);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--text2);display:flex;justify-content:space-between}
+.hi{padding:8px 12px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:60px 1fr auto;gap:8px;align-items:start}
+.hi:last-child{border-bottom:none}
+.ht{color:var(--text3);font-size:9px;line-height:1.6}
+.htx{color:var(--text2);font-size:10px;line-height:1.5}
+.hv{font-size:9px;font-weight:700;white-space:nowrap}
+
+.err{background:rgba(255,64,96,.08);border:1px solid rgba(255,64,96,.3);padding:10px 12px;font-size:10px;color:var(--red);line-height:1.7;border-radius:1px}
+
+/* Loading dots */
+.ld span{animation:bk 1.2s infinite;display:inline-block}
+.ld span:nth-child(2){animation-delay:.2s}
+.ld span:nth-child(3){animation-delay:.4s}
+@keyframes bk{0%,80%,100%{opacity:0}40%{opacity:1}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- HEADER -->
+<div class="hdr">
+  <div>
+    <div class="badge">RMv8 AGENT</div>
+    <div class="sub">
+      <span class="dot" id="dot"></span>
+      <span id="st">Configurando...</span>
+    </div>
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:9px;color:var(--text2)">CADCHF · M30 · Groq</div>
+    <div style="font-size:9px;color:var(--text3);margin-top:2px" id="ts">—</div>
+  </div>
+</div>
+
+<!-- CONFIG -->
+<div class="cfg" id="cfgPanel">
+  <div class="cfg-t">// URL del backend (Railway)</div>
+  <input class="inp" type="url" id="burl"
+    placeholder="https://rmv8-agent.up.railway.app"
+    autocomplete="off" autocorrect="off" spellcheck="false">
+  <div style="font-size:9px;color:var(--text3);margin-top:5px">
+    Pega la URL que Railway te da al deployar. Se guarda en el browser.
+  </div>
+  <div class="cfg-btns">
+    <button class="btn pri" onclick="saveCfg()">Guardar y conectar</button>
+    <button class="btn" onclick="testConn()">Probar</button>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="sc g"><div class="sl">IS Win Rate</div><div class="sv green">91.7%</div><div class="ss">290 trades · 6 años</div></div>
+  <div class="sc g"><div class="sl">OOS Win Rate</div><div class="sv green">95.2%</div><div class="ss">42 trades · 11M</div></div>
+  <div class="sc y"><div class="sl">ATR Umbral</div><div class="sv yellow">0.0005</div><div class="ss">M30 mínimo</div></div>
+  <div class="sc b"><div class="sl">SL / TP</div><div class="sv" style="font-size:11px">185p / 30p</div><div class="ss">ShrinkSL +16p</div></div>
+</div>
+
+<!-- MARKET -->
+<div class="mc">
+  <div class="mc-t">// Indicadores M30 en vivo</div>
+  <div class="ir"><span class="in">ATR(38) M30</span><span class="iv n" id="atrV">—</span></div>
+  <div class="gt">
+    <div class="gf" id="atrF" style="width:0%;background:var(--red)"></div>
+    <div class="gth"></div>
+  </div>
+  <div class="gl"><span>0</span><span id="atrPctLbl">—% del umbral</span></div>
+  <div class="ir" style="margin-top:5px"><span class="in">Tendencia ATR</span><span class="iv n" id="atrTr">—</span></div>
+  <div class="ir"><span class="in">Precio CADCHF</span><span class="iv n" id="prc">—</span></div>
+  <div class="ir"><span class="in">BB Upper (30,2.4)</span><span class="iv n" id="bbU">—</span></div>
+  <div class="ir"><span class="in">BB Lower (30,2.4)</span><span class="iv n" id="bbL">—</span></div>
+  <div class="ir"><span class="in">Dist. a upper</span><span class="iv n" id="dU">—</span></div>
+  <div class="ir"><span class="in">Dist. a lower</span><span class="iv n" id="dL">—</span></div>
+  <div class="bbv">
+    <div class="bbl" style="top:0;background:rgba(68,136,255,.5)"></div>
+    <div class="bbl" style="top:50%;background:rgba(68,136,255,.2)"></div>
+    <div class="bbl" style="bottom:0;background:rgba(68,136,255,.5)"></div>
+    <div class="bbp" id="bbDot" style="left:50%;top:50%;color:var(--blue)">●</div>
+  </div>
+</div>
+
+<div class="mc">
+  <div class="mc-t">// Filtros del EA</div>
+  <div class="ir"><span class="in">Ventana GMT 09-20h</span><span class="iv n" id="fW">—</span></div>
+  <div class="ir"><span class="in">Hora GMT</span><span class="iv n" id="fG">—</span></div>
+  <div class="ir"><span class="in">Filtro ATR</span><span class="iv n" id="fA">—</span></div>
+  <div class="ir"><span class="in">Señal BB</span><span class="iv n" id="fB">—</span></div>
+  <div class="ir"><span class="in">Condición global</span><span class="iv n" id="fC">—</span></div>
+</div>
+
+<!-- REGIME -->
+<div class="regime" id="regimeBox" style="display:none">
+  <div class="regime-lbl">// Diagnóstico calculado</div>
+  <div class="regime-val" id="regV">—</div>
+  <div class="regime-detail" id="regD">—</div>
+</div>
+
+<!-- BUTTONS -->
+<div class="btns">
+  <button class="btn pri" id="btnA" onclick="analyze()" disabled>▶ Analizar</button>
+  <button class="btn" id="btnM" onclick="mkt()" disabled>↓ Datos</button>
+  <button class="btn" id="btnAu" onclick="toggleAuto()" disabled>⟳ Auto</button>
+</div>
+
+<!-- AGENT -->
+<div class="agent">
+  <div class="agh">
+    <div class="agt">🤖 Agente — LLaMA 3.3 70B via Groq</div>
+    <div style="font-size:9px;color:var(--text3)" id="cnt">0 análisis</div>
+  </div>
+  <div class="agb" id="agb">
+    <div style="color:var(--text3);font-size:10px;line-height:2">
+      Configura la URL del backend arriba.<br>
+      El agente usa Groq (LLaMA 3.3 70B) gratis + datos M30 reales<br>
+      de Alpha Vantage para razonar sobre CADCHF.
+    </div>
+  </div>
+  <div id="decWrap" style="display:none">
+    <div class="dec-wrap">
+      <div class="dec">
+        <div class="dec-lbl">Veredicto del agente</div>
+        <div class="dec-v" id="decV">—</div>
+        <div class="dec-r" id="decR">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="hist">
+  <div class="hh"><span>// Historial</span><span id="hCnt">0</span></div>
+  <div id="hList"><div style="padding:12px;color:var(--text3);font-size:10px">Sin análisis todavía.</div></div>
+</div>
+
+</div>
+
+<script>
+const S={url:localStorage.getItem('rmv8_url')||'',count:0,hist:[],auto:null,busy:false};
+
+if(S.url){
+  document.getElementById('burl').value=S.url;
+  enable();
+  st('live','Backend listo — pulsa Analizar');
+}
+
+function st(t,txt){
+  document.getElementById('dot').className='dot '+t;
+  document.getElementById('st').textContent=txt;
+}
+function enable(){['btnA','btnM','btnAu'].forEach(id=>document.getElementById(id).disabled=false)}
+
+function saveCfg(){
+  const u=document.getElementById('burl').value.trim().replace(/\/$/,'');
+  if(!u)return;
+  S.url=u;
+  localStorage.setItem('rmv8_url',u);
+  enable();
+  st('live','URL guardada');
+  mkt();
+}
+
+async function testConn(){
+  if(!S.url)return;
+  try{
+    st('think','Probando...');
+    const r=await fetch(S.url+'/health');
+    const d=await r.json();
+    st('live',`OK — AV:${d.av_set?'✓':'✗'} Groq:${d.groq_set?'✓':'✗'}`);
+  }catch(e){st('err','Error: '+e.message)}
+}
+
+async function mkt(){
+  if(!S.url)return;
+  try{
+    st('think','Obteniendo datos M30...');
+    const r=await fetch(S.url+'/market');
+    if(!r.ok)throw new Error(await r.text());
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    render(d);
+    st('live','Datos actualizados');
+    document.getElementById('ts').textContent='Vela: '+d.last_candle;
+  }catch(e){st('err',e.message)}
+}
+
+async function analyze(){
+  if(S.busy||!S.url)return;
+  S.busy=true;
+  document.getElementById('btnA').disabled=true;
+  st('think','Groq analizando...');
+  document.getElementById('agb').innerHTML=
+    `<div style="color:var(--text2);font-size:10px">Razonando con LLaMA 3.3 70B<span class="ld"> <span>.</span><span>.</span><span>.</span></span></div>`;
+  document.getElementById('decWrap').style.display='none';
+
+  try{
+    const r=await fetch(S.url+'/analyze');
+    if(!r.ok)throw new Error(await r.text());
+    const d=await r.json();
+    if(d.error)throw new Error(d.error);
+    render(d);
+    document.getElementById('agb').innerHTML=`<div class="agtxt">${esc(d.analysis)}</div>`;
+    document.getElementById('decWrap').style.display='block';
+    const vt=d.verdict||'ESPERAR';
+    const dv=document.getElementById('decV');
+    dv.textContent=vt.replace('_',' ');
+    dv.className='dec-v '+(vt==='SEÑAL_ACTIVA'?'ready':vt==='ALERTA'?'caution':'wait');
+    document.getElementById('decR').textContent=d.reason||'';
+    S.count++;
+    document.getElementById('cnt').textContent=S.count+' análisis';
+    const now=new Date();
+    S.hist.unshift({
+      time:now.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}),
+      atr:d.atr,price:d.price,verdict:vt,
+      sum:d.analysis.split('\n').find(l=>l.trim().length>30)||d.analysis.substring(0,100)
+    });
+    if(S.hist.length>10)S.hist.pop();
+    renderHist();
+    st('live','Análisis listo · '+now.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}));
+  }catch(e){
+    document.getElementById('agb').innerHTML=`<div class="err">Error: ${esc(e.message)}</div>`;
+    st('err','Error');
+  }
+  S.busy=false;
+  document.getElementById('btnA').disabled=false;
+}
+
+function render(d){
+  const atr=d.atr, th=0.0005;
+  const pct=Math.min(100,(atr/th)*70);
+  const col=d.atr_pass?'var(--green)':d.atr_pct>=80?'var(--yellow)':'var(--red)';
+  document.getElementById('atrV').textContent=atr.toFixed(6);
+  document.getElementById('atrV').className='iv '+(d.atr_pass?'ok':d.atr_pct>=80?'warn':'ko');
+  document.getElementById('atrF').style.cssText=`width:${pct}%;background:${col}`;
+  document.getElementById('atrPctLbl').textContent=d.atr_pct+'% del umbral';
+  document.getElementById('atrTr').textContent=d.atr_trend||'—';
+
+  document.getElementById('prc').textContent=d.price.toFixed(5);
+  document.getElementById('bbU').textContent=d.bb.upper.toFixed(5);
+  document.getElementById('bbL').textContent=d.bb.lower.toFixed(5);
+  document.getElementById('dU').textContent=d.dist_upper_pips+'p';
+  document.getElementById('dL').textContent=d.dist_lower_pips+'p';
+
+  // BB dot
+  const pos=d.price_pct_in_band/100;
+  const left=Math.max(4,Math.min(96,pos*100));
+  const dot=document.getElementById('bbDot');
+  dot.style.left=left+'%';
+  dot.style.color=pos>0.95?'var(--red)':pos<0.05?'var(--green)':'var(--blue)';
+
+  // Filtros
+  const gh=new Date().getUTCHours();
+  document.getElementById('fG').textContent=`${gh}:${String(new Date().getUTCMinutes()).padStart(2,'0')} GMT`;
+  sf('fW',d.in_window,d.in_window?'✓ ACTIVA':'✗ FUERA');
+  sf('fA',d.atr_pass,d.atr_pass?'✓ PASA':`✗ FALLA (${d.atr_pct}%)`);
+  sf('fB',!!d.bb_signal,d.bb_signal||'Sin señal');
+  sf('fC',d.all_pass,d.all_pass?'⚡ SEÑAL ACTIVA':d.regime||'BLOQUEADO');
+
+  // Regime box
+  const rb=document.getElementById('regimeBox');
+  rb.style.display='block';
+  const rv=document.getElementById('regV');
+  rv.textContent=d.regime||'—';
+  const rmap={
+    'COMPRESIÓN SEVERA':'sev','COMPRESIÓN MODERADA':'mod',
+    'PRE-ACTIVACIÓN':'pre','CONDICIONES COMPLETAS':'ok',
+    'VOLATILIDAD OK — SIN SEÑAL BB':'wait'
+  };
+  rv.className='regime-val '+(rmap[d.regime]||'n');
+  document.getElementById('regD').textContent=d.regime_detail||'—';
+}
+
+function sf(id,ok,txt){
+  const el=document.getElementById(id);
+  el.textContent=txt;el.className='iv '+(ok?'ok':'ko');
+}
+
+function toggleAuto(){
+  const b=document.getElementById('btnAu');
+  if(S.auto){
+    clearInterval(S.auto);S.auto=null;
+    b.textContent='⟳ Auto';b.className='btn';
+    st('live','Auto desactivado');
+  }else{
+    analyze();
+    S.auto=setInterval(()=>{mkt();analyze();},30*60*1000);
+    b.textContent='⏹ Stop';b.className='btn act';
+    st('live','Auto activo · cada 30min');
+  }
+}
+
+function renderHist(){
+  document.getElementById('hCnt').textContent=S.hist.length;
+  if(!S.hist.length)return;
+  document.getElementById('hList').innerHTML=S.hist.map(h=>`
+    <div class="hi">
+      <div>
+        <div class="ht">${h.time}</div>
+        <div style="color:var(--text3);font-size:8px">${h.atr.toFixed(5)}</div>
+        <div style="color:var(--text3);font-size:8px">${h.price.toFixed(5)}</div>
+      </div>
+      <div class="htx">${esc(h.sum.substring(0,120))}...</div>
+      <div class="hv" style="color:${h.verdict==='SEÑAL_ACTIVA'?'var(--green)':h.verdict==='ALERTA'?'var(--orange)':'var(--yellow)'}">
+        ${h.verdict.replace('_',' ')}
+      </div>
+    </div>`).join('');
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}
+
+// Reloj GMT
+setInterval(()=>{
+  const h=new Date().getUTCHours(),m=String(new Date().getUTCMinutes()).padStart(2,'0');
+  const el=document.getElementById('fG');
+  if(el)el.textContent=`${h}:${m} GMT`;
+},15000);
+</script>
+</body>
+</html>
