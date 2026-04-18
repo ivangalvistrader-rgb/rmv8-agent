@@ -26,8 +26,9 @@ GROQ_KEY=TU_KEY_GROQ_AQUI
 ### 3. Variables de entorno (LAS KEYS)
 En Railway → tu proyecto → Variables → Raw Editor → pega esto:
 
-ALPHA_VANTAGE_KEY=3BTJKIKE9E7CV2B3
-GROQ_KEY=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
+ALPHA_VANTAGE_KEY=TU_KEY_AQUI
+GROQ_KEY=TU_KEY_GROQ_AQUI
+
 
 → Update Variables → Railway redeploya automático
 
