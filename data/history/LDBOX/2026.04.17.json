@@ -1,0 +1,33 @@
+{
+  "ea_key": "LDBOX",
+  "ea_name": "EA-LDBOX",
+  "symbol": "GDAXI",
+  "date": "2026.04.17",
+  "period_start": "2026.04.17 01:00:11",
+  "period_end": "2026.04.17 23:55:00",
+  "bar_count": 276,
+  "trades_open": 0,
+  "trades_close": 0,
+  "sl_count": 0,
+  "tp_count": 0,
+  "realized_pnl": 0,
+  "blocks": {
+    "OUTSIDE_WINDOW": 204,
+    "RANGE_INVALID": 72
+  },
+  "dominant_block": "OUTSIDE_WINDOW",
+  "block_is_expected": false,
+  "total_blocks": 276,
+  "atr_avg": null,
+  "atr_min": null,
+  "atr_max": null,
+  "price_last": null,
+  "bbl_avg": null,
+  "bbu_avg": null,
+  "spread_avg": 3.03,
+  "spread_max": 12.7,
+  "status": "REVISAR",
+  "status_reason": "0 trades — bloqueador inusual: OUTSIDE_WINDOW",
+  "recent_trades": [],
+  "recent_closes": []
+}
