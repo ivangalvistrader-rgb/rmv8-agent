@@ -6,7 +6,7 @@
   "period_start": "2026.04.17 00:05:00",
   "period_end": "2026.04.17 23:00:00",
   "bar_count": 0,
-  "trades_open": 0,
+  "trades_open": 1,
   "trades_close": 0,
   "sl_count": 0,
   "tp_count": 0,
@@ -21,10 +21,18 @@
   "price_last": null,
   "bbl_avg": null,
   "bbu_avg": null,
-  "spread_avg": 1.98,
-  "spread_max": 17.5,
+  "spread_avg": 0.92,
+  "spread_max": 12.6,
   "status": "NORMAL",
-  "status_reason": "Período sin condiciones",
-  "recent_trades": [],
+  "status_reason": "1 trades detectados",
+  "recent_trades": [
+    {
+      "dt": "2026.04.17 03:00:00",
+      "dir": "SELL",
+      "price": 1.35249,
+      "lots": 0.8,
+      "detail": "entrada"
+    }
+  ],
   "recent_closes": []
 }
