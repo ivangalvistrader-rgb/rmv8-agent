@@ -1,0 +1,38 @@
+{
+  "ea_key": "MilkyWay",
+  "ea_name": "EA-MilkyWay",
+  "symbol": "EURUSD",
+  "date": "2026.04.17",
+  "period_start": "2026.04.17 15:49:04",
+  "period_end": "2026.04.17 23:54:59",
+  "bar_count": 1,
+  "trades_open": 0,
+  "trades_close": 1,
+  "sl_count": 1,
+  "tp_count": 0,
+  "realized_pnl": -948.42,
+  "blocks": {
+    "ENTRY_FILTERED": 1
+  },
+  "dominant_block": "ENTRY_FILTERED",
+  "block_is_expected": false,
+  "total_blocks": 1,
+  "atr_avg": null,
+  "atr_min": null,
+  "atr_max": null,
+  "price_last": null,
+  "bbl_avg": null,
+  "bbu_avg": null,
+  "spread_avg": 0.1,
+  "spread_max": 0.1,
+  "status": "NORMAL",
+  "status_reason": "Período sin condiciones",
+  "recent_trades": [],
+  "recent_closes": [
+    {
+      "dt": "2026.04.17 15:49:04",
+      "exit_type": "DEAL_OUT",
+      "pnl": -948.42
+    }
+  ]
+}
